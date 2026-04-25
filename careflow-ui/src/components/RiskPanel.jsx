@@ -21,7 +21,7 @@ export default function RiskPanel({ assessment }) {
   return (
     <div className={`fade-in-up bg-gray-900 rounded-xl border ${s.border} p-4 ${isCritical ? 'glow-red' : ''}`}>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-sm text-gray-300">Gemini Risk Assessment</h2>
+        <h2 className="font-semibold text-sm text-gray-300">MedGemma Risk Assessment</h2>
         <div className="flex items-center gap-2">
           <span className={`text-xs px-2 py-0.5 rounded font-bold ${s.badge} ${isCritical ? 'animate-pulse' : ''}`}>
             {assessment.severity_level}
