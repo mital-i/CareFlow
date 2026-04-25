@@ -1,60 +1,96 @@
 # CareFlow
 
-## Person 1: Data & Edge Layer
+CareFlow is a real-time patient monitoring pipeline: wearable vitals → heuristic anomaly detection → MedGemma risk classification → doctor-facing dashboard.
 
-This layer streams configurable wearable vitals, runs local anomaly detection through a ZETIC Melange-compatible wrapper, stores demo data in MongoDB Atlas, and streams live vitals to the dashboard with Server-Sent Events.
+## Setup
 
-### Install
+### 1. Python backend
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Create `.env` from `.env.example` and set `MONGODB_URI`.
+Copy `.env.example` → `.env` and fill in `MONGODB_URI`, `AGENT_MONITOR_SEED_PHRASE`, `AGENT_COORDINATOR_SEED_PHRASE`, and `AGENTVERSE_KEY`.
 
-By default CareFlow uses the synthetic source:
-
-```bash
-VITALS_SOURCE=synthetic
-```
-
-### Seed Demo Data
+Seed the demo patient (run once):
 
 ```bash
 python scripts/seed.py
 ```
 
-This resets the demo data for `patient-001`, inserts Margaret Chen, and adds 20 normal vitals readings.
+### 2. React dashboard
 
-### Start The API
+```bash
+cd careflow-ui
+npm install
+```
 
+---
+
+## Running the Full System
+
+Open **5 terminals**. Terminals 1–3 require your Python venv active.
+
+**Terminal 1 — Ollama (MedGemma)**
+```bash
+ollama serve
+```
+Pull the model once if you haven't already: `ollama pull medgemma`
+
+**Terminal 2 — FastAPI gateway** *(venv)*
 ```bash
 uvicorn api.main:app --reload --port 8000
 ```
 
-Startup logs should show Mongo, demo patient, vitals stream, and trigger endpoint readiness.
+**Terminal 3 — Agent 1: Vital Monitor** *(venv)*
+```bash
+python agents/agent1_monitor.py
+```
+Note the printed agent address and set `AGENT_MONITOR_ADDRESS` in `.env`.
 
-### Open The SSE Stream
+**Terminal 4 — Agent 2: Coordinator** *(venv)*
+```bash
+python agents/agent2_coordinator.py
+```
+Note the printed agent address and set `AGENT_COORDINATOR_ADDRESS` in `.env`.
+
+**Terminal 5 — React dashboard**
+```bash
+cd careflow-ui && npm run dev
+```
+Open `http://localhost:5173`.
+
+---
+
+## Triggering a Demo Anomaly
+
+From the dashboard: press **D** to open Demo Controls, then click **Trigger AFib Anomaly**.
+
+Or via curl:
+
+```bash
+curl -X POST http://localhost:8000/trigger-anomaly \
+  -H "Content-Type: application/json" \
+  -d '{"patient_id":"patient-001","duration_seconds":30}'
+```
+
+Within 1–2 seconds, HR spikes, SpO2 dips, HRV drops → anomaly detected → MedGemma classifies risk → RiskPanel appears on dashboard.
+
+### Dashboard key bindings
+- **D** — Demo Controls overlay
+- **F** — System Flow Diagram
+
+---
+
+## Vitals Stream
 
 ```bash
 curl -N http://localhost:8000/vitals/stream/patient-001
 ```
 
-Each vitals event is shaped as:
+Each event: `{"type":"vitals","data":{"patient_id":"patient-001","heart_rate":74,"spo2":98,"hrv":55}}`
 
-```json
-{"type":"vitals","data":{"patient_id":"patient-001","heart_rate":74,"spo2":98,"hrv":55}}
-```
-
-### Trigger Anomaly
-
-```bash
-curl -X POST http://localhost:8000/trigger-anomaly \
-  -H "Content-Type: application/json" \
-  -d '{"patient_id":"patient-001"}'
-```
-
-Within 1-2 seconds, heart rate spikes, SpO2 dips, HRV drops, and the local detector emits an `AnomalyEvent`.
+By default uses the synthetic source (`VITALS_SOURCE=synthetic`).
 
 ### Replay BIDMC Vitals
 
