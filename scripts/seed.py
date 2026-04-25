@@ -1,9 +1,9 @@
+"""Seed CareFlow demo data.
+
+Run: python3 scripts/seed.py
+
+Safe to re-run: drops and recreates demo collections each time.
 """
-Run: python scripts/seed.py
-Seeds 3 demo patients with 30 days of historical vitals including pre-seeded anomaly events.
-Safe to re-run — drops and recreates collections each time.
-"""
-import os
 import random
 import sys
 from datetime import datetime, timedelta, timezone
@@ -14,9 +14,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from db.db import get_db
+from db.db import ensure_indexes, get_db
+from models.schemas import Patient, VitalsHistory
 
-DEMO_PATIENTS = [
+RANDOM_SEED = 20260424
+INTERVAL_SECONDS = 300
+READINGS_PER_DAY = 24 * (3600 // INTERVAL_SECONDS)
+
+DEMO_PATIENTS_RAW = [
     {
         "patient_id": "P001",
         "name": "Margaret Chen",
@@ -56,7 +61,7 @@ DEMO_PATIENTS = [
         "conditions": ["post-operative recovery", "sleep apnea"],
         "medications": ["ibuprofen", "omeprazole"],
         "baseline_hr": 65.0,
-        "baseline_spo2": 96.5,
+        "baseline_spo2": 97.0,
         "baseline_hrv": 65.0,
         "notification_prefs": {
             "sensitivity": "LOW",
@@ -67,27 +72,46 @@ DEMO_PATIENTS = [
     },
 ]
 
+DEMO_PATIENTS = [patient.model_dump(mode="json") for patient in [Patient(**p) for p in DEMO_PATIENTS_RAW]]
+
 
 def _gaussian(mean: float, std: float, low: float, high: float) -> float:
     return max(low, min(high, random.gauss(mean, std)))
 
 
+def _circadian_hr_offset(hour: int) -> float:
+    # Peak in the afternoon, lower overnight.
+    return 4.0 * (1 - abs(hour - 14) / 14)
+
+
+def _anomaly_indices(total_readings: int) -> set[int]:
+    """Return deterministic multi-reading anomaly windows across the 30-day span."""
+    episode_starts = [
+        READINGS_PER_DAY * 4 + 72,
+        READINGS_PER_DAY * 13 + 144,
+        READINGS_PER_DAY * 24 + 210,
+    ]
+    indices: set[int] = set()
+    for start in episode_starts:
+        for offset in range(6):  # 30 minutes at 5-minute intervals
+            if start + offset < total_readings:
+                indices.add(start + offset)
+    return indices
+
+
 def generate_vitals_history(patient: dict, days: int = 30) -> list:
     records = []
     now = datetime.now(timezone.utc)
-    interval_seconds = 300  # one reading every 5 min
-    total_readings = days * 24 * (3600 // interval_seconds)
-
-    anomaly_windows = set(random.sample(range(total_readings), k=5))
+    total_readings = days * READINGS_PER_DAY
+    anomaly_windows = _anomaly_indices(total_readings)
 
     for i in range(total_readings):
-        ts = now - timedelta(seconds=i * interval_seconds)
+        ts = now - timedelta(seconds=(total_readings - i) * INTERVAL_SECONDS)
         hour = ts.hour
-        circadian_hr_offset = 5 * (1 - abs(hour - 14) / 14)
 
         in_anomaly = i in anomaly_windows
         hr = _gaussian(
-            patient["baseline_hr"] + circadian_hr_offset + (25 if in_anomaly else 0),
+            patient["baseline_hr"] + _circadian_hr_offset(hour) + (30 if in_anomaly else 0),
             3.0, 40, 160
         )
         spo2 = _gaussian(
@@ -99,7 +123,7 @@ def generate_vitals_history(patient: dict, days: int = 30) -> list:
             5.0, 10, 120
         )
 
-        records.append({
+        record = {
             "patient_id": patient["patient_id"],
             "timestamp": ts,
             "heart_rate": round(hr, 1),
@@ -107,12 +131,14 @@ def generate_vitals_history(patient: dict, days: int = 30) -> list:
             "hrv": round(hrv, 1),
             "device_id": f"zetic-{patient['patient_id'].lower()}-001",
             "anomaly_flagged": in_anomaly,
-        })
+        }
+        records.append(VitalsHistory(**record).model_dump())
 
     return records
 
 
 def seed():
+    random.seed(RANDOM_SEED)
     db = get_db()
 
     print("Dropping existing collections...")
@@ -120,6 +146,7 @@ def seed():
     db.vitals_history.drop()
     db.risk_assessments.drop()
     db.action_logs.drop()
+    db.demo_triggers.drop()
 
     print("Inserting demo patients...")
     db.patients.insert_many(DEMO_PATIENTS)
@@ -130,14 +157,12 @@ def seed():
         db.vitals_history.insert_many(records)
         print(f"    Inserted {len(records)} readings")
 
-    db.vitals_history.create_index([("patient_id", 1), ("timestamp", -1)])
-    db.patients.create_index("patient_id", unique=True)
-    db.risk_assessments.create_index([("patient_id", 1), ("generated_at", -1)])
-    db.action_logs.create_index([("patient_id", 1), ("executed_at", -1)])
+    ensure_indexes(force=True)
 
     print("\nSeed complete.")
     print(f"  Patients: {db.patients.count_documents({})}")
     print(f"  Vitals records: {db.vitals_history.count_documents({})}")
+    print(f"  Anomaly records: {db.vitals_history.count_documents({'anomaly_flagged': True})}")
 
 
 if __name__ == "__main__":

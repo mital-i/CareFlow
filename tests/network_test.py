@@ -33,8 +33,7 @@ def mock_anomaly():
     )
 
 
-@pytest.mark.asyncio
-async def test_risk_pipeline_returns_assessment(mock_anomaly):
+def test_risk_pipeline_returns_assessment(mock_anomaly):
     """Risk pipeline should return a RiskAssessmentDoc given a valid AnomalyEvent."""
     with patch("risk.classifier._get_vertex_client") as mock_client:
         mock_response = MagicMock()
@@ -65,7 +64,7 @@ async def test_risk_pipeline_returns_assessment(mock_anomaly):
 
             with patch("risk.nodes.save_risk_assessment"):
                 from risk.pipeline import invoke_pipeline
-                result = await invoke_pipeline(mock_anomaly)
+                result = asyncio.run(invoke_pipeline(mock_anomaly))
 
     assert result is not None
     assert result.patient_id == "P001"
@@ -74,8 +73,7 @@ async def test_risk_pipeline_returns_assessment(mock_anomaly):
     assert result.reasoning_context != ""
 
 
-@pytest.mark.asyncio
-async def test_fallback_assessment_fires_on_vertex_failure(mock_anomaly):
+def test_fallback_assessment_fires_on_vertex_failure(mock_anomaly):
     """Pipeline should use rule-based fallback when Vertex AI raises an exception."""
     with patch("risk.classifier._get_vertex_client", side_effect=Exception("API unavailable")):
         with patch("risk.history.build_patient_history") as mock_history:
@@ -102,7 +100,7 @@ async def test_fallback_assessment_fires_on_vertex_failure(mock_anomaly):
 
             with patch("risk.nodes.save_risk_assessment"):
                 from risk.pipeline import invoke_pipeline
-                result = await invoke_pipeline(mock_anomaly)
+                result = asyncio.run(invoke_pipeline(mock_anomaly))
 
     assert result is not None
     assert result.risk_score > 0

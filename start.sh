@@ -15,7 +15,7 @@ echo "=== CareFlow Startup ==="
 
 # 1. Seed DB if needed (skip if already seeded)
 echo "[1/5] Checking DB seed..."
-python scripts/seed.py
+python3 scripts/seed.py
 
 # 2. Start FastAPI gateway in background
 echo "[2/5] Starting FastAPI gateway on :8000"
@@ -24,15 +24,15 @@ API_PID=$!
 
 # 3. Start all 5 agents in background
 echo "[3/5] Starting agents..."
-python agents/agent1_vital_monitor.py &
+python3 agents/agent1_vital_monitor.py &
 AGENT1_PID=$!
-python agents/agent2_risk_assessment.py &
+python3 agents/agent2_risk_assessment.py &
 AGENT2_PID=$!
-python agents/agent3_coordinator.py &
+python3 agents/agent3_coordinator.py &
 AGENT3_PID=$!
-python agents/agent4_patient.py &
+python3 agents/agent4_patient.py &
 AGENT4_PID=$!
-python agents/agent5_provider.py &
+python3 agents/agent5_provider.py &
 AGENT5_PID=$!
 
 # 4. Start React dev server

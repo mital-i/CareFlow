@@ -1,6 +1,6 @@
-from datetime import datetime
-from pydantic import BaseModel, Field
-from datetime import timezone
+from datetime import datetime, timezone
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class VitalsPayload(BaseModel):
@@ -11,3 +11,10 @@ class VitalsPayload(BaseModel):
     hrv: float
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     device_id: str
+
+    @field_validator("timestamp")
+    @classmethod
+    def _timestamp_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)

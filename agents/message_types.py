@@ -20,6 +20,38 @@ class AnomalyEventMessage(Model):
     detected_at: str  # ISO 8601
 
 
+class VitalsQueryMessage(Model):
+    patient_id: str
+
+
+class VitalsResponseMessage(Model):
+    patient_id: str
+    heart_rate: float
+    spo2: float
+    hrv: float
+    timestamp: str
+    device_id: str
+    anomaly_flagged: bool = False
+
+
+class DetectAnomalyRequestMessage(Model):
+    patient_id: str
+    heart_rate: float
+    spo2: float
+    hrv: float
+    timestamp: str
+    device_id: str
+
+
+class DetectAnomalyResponseMessage(Model):
+    patient_id: str
+    anomaly_detected: bool
+    deviation_score: float
+    signal_type: Optional[str] = None
+    anomaly_id: Optional[str] = None
+    detected_at: Optional[str] = None
+
+
 class RiskAssessmentMessage(Model):
     assessment_id: str
     patient_id: str

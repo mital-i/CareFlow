@@ -3,12 +3,26 @@ Pydantic models matching MongoDB collection schemas.
 All four parts import from here — do not change field names without notifying teammates.
 """
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+class CareFlowModel(BaseModel):
+    """Base model with JSON-safe UUID/datetime serialization."""
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def ensure_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 class SeverityLevel(str, Enum):
@@ -39,19 +53,19 @@ class NotificationSensitivity(str, Enum):
 
 # ── MongoDB: patients collection ──────────────────────────────────────────────
 
-class NotificationPrefs(BaseModel):
+class NotificationPrefs(CareFlowModel):
     sensitivity: NotificationSensitivity = NotificationSensitivity.MEDIUM
     preferred_channel: NotificationChannel = NotificationChannel.PUSH
     do_not_disturb_hours: Optional[List[int]] = None  # e.g. [22, 23, 0, 1, 2, 3, 4, 5, 6]
     emergency_contact: Optional[str] = None
 
 
-class Patient(BaseModel):
+class Patient(CareFlowModel):
     patient_id: str
     name: str
     age: int
-    conditions: List[str] = []
-    medications: List[str] = []
+    conditions: List[str] = Field(default_factory=list)
+    medications: List[str] = Field(default_factory=list)
     baseline_hr: float
     baseline_spo2: float
     baseline_hrv: float
@@ -60,7 +74,7 @@ class Patient(BaseModel):
 
 # ── MongoDB: vitals_history collection ────────────────────────────────────────
 
-class VitalsHistory(BaseModel):
+class VitalsHistory(CareFlowModel):
     patient_id: str
     timestamp: datetime
     heart_rate: float
@@ -69,25 +83,40 @@ class VitalsHistory(BaseModel):
     device_id: str
     anomaly_flagged: bool = False
 
+    @field_validator("timestamp")
+    @classmethod
+    def _timestamp_aware(cls, value: datetime) -> datetime:
+        return ensure_aware_utc(value)
+
 
 # ── MongoDB: risk_assessments collection ──────────────────────────────────────
 
-class RiskAssessmentDoc(BaseModel):
+class RiskAssessmentDoc(CareFlowModel):
     assessment_id: UUID = Field(default_factory=uuid4)
     patient_id: str
     risk_score: float
     severity_level: SeverityLevel
     reasoning_context: str
     anomaly_ref: Optional[UUID] = None
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=utc_now)
+
+    @field_validator("generated_at")
+    @classmethod
+    def _generated_at_aware(cls, value: datetime) -> datetime:
+        return ensure_aware_utc(value)
 
 
 # ── MongoDB: action_logs collection ───────────────────────────────────────────
 
-class ActionLog(BaseModel):
+class ActionLog(CareFlowModel):
     action_id: UUID = Field(default_factory=uuid4)
     patient_id: str
     assessment_ref: UUID
     action_tier: ActionTier
-    executed_at: datetime = Field(default_factory=datetime.utcnow)
+    executed_at: datetime = Field(default_factory=utc_now)
     provider_message: Optional[str] = None
+
+    @field_validator("executed_at")
+    @classmethod
+    def _executed_at_aware(cls, value: datetime) -> datetime:
+        return ensure_aware_utc(value)
