@@ -23,6 +23,19 @@ class ActionTier(str, Enum):
     ER_DISPATCH = "ER_DISPATCH"
 
 
+class SafetyStatus(str, Enum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    UNCERTAIN = "UNCERTAIN"
+
+
+class SafetyReport(BaseModel):
+    status: SafetyStatus
+    is_hallucination: bool
+    medical_alignment: bool
+    concerns: Optional[str] = None
+
+
 class RiskAssessment(BaseModel):
     assessment_id: UUID = Field(default_factory=uuid4)
     patient_id: str
@@ -31,6 +44,7 @@ class RiskAssessment(BaseModel):
     reasoning_context: str
     doctor_note: str
     anomaly_ref: str
+    safety_report: Optional[SafetyReport] = None
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
