@@ -38,7 +38,7 @@ AGENT_MONITOR_SEED_PHRASE = os.getenv("AGENT_MONITOR_SEED_PHRASE", "your-agent-s
 
 monitor_agent = Agent(
     name="CareFlow-VitalMonitor",
-    seed=AGENT_SEED,
+    seed=AGENT_MONITOR_SEED_PHRASE,
     mailbox=True,
     port=8001, 
     publish_agent_details=True,

@@ -1,85 +1,111 @@
-"""ZETIC Melange on-device anomaly detector.
+"""ZETIC Melange-compatible local anomaly detector.
 
-Buffers the last 10s of vitals. On each tick, runs inference and emits
-AnomalyEvent when deviation_score exceeds ANOMALY_THRESHOLD.
-
-If the ZETIC SDK is unavailable (dev/CI), falls back to a heuristic scorer
-that produces equivalent outputs for testing the rest of the pipeline.
+The demo contract is intentionally small: raw vitals are processed locally,
+and only compact AnomalyEvent objects are saved/sent upstream.
 """
 from __future__ import annotations
+
 import os
-import time
-from collections import deque
-from typing import Callable, Optional
-from uuid import uuid4
+from collections import defaultdict, deque
+from typing import Deque, Optional
 
-from models.schemas import AnomalyEvent, VitalsPayload
-
-ANOMALY_THRESHOLD = float(os.getenv("ANOMALY_THRESHOLD", "0.65"))
-BUFFER_SIZE = 10  # seconds of vitals to buffer
+from db.db import save_anomaly
+from models.vitals import AnomalyEvent, VitalsPayload
 
 
-class MelangeDetector:
+class ZeticAnomalyDetector:
+    buffer_size = 10
+    threshold = float(os.getenv("ANOMALY_THRESHOLD", "0.65"))
+
     def __init__(self) -> None:
-        self._buffer: deque[VitalsPayload] = deque(maxlen=BUFFER_SIZE)
+        self._buffers: dict[str, Deque[VitalsPayload]] = defaultdict(
+            lambda: deque(maxlen=self.buffer_size)
+        )
+        self._zetic_model = None
         self._zetic_available = self._try_init_zetic()
 
     def _try_init_zetic(self) -> bool:
-        try:
-            from zetic_mlange import ZeticMLange  # type: ignore
-            model_key = os.environ["ZETIC_MODEL_KEY"]
-            personal_key = os.environ["ZETIC_PERSONAL_KEY"]
-            backend = os.getenv("ZETIC_BACKEND", "heuristic")
-            self._model = ZeticMLange(model_key, personal_key, backend=backend)
-            print("[ZETIC] Melange SDK initialised successfully")
-            return True
-        except Exception as exc:
-            print(f"[ZETIC] SDK not available ({exc}) — using heuristic fallback")
+        if os.getenv("ZETIC_MODE", "mock").lower() == "mock":
             return False
 
-    def _heuristic_score(self) -> float:
-        """Simple z-score based deviation across HR, SpO2, HRV."""
-        if len(self._buffer) < 3:
-            return 0.0
-        hrs = [v.heart_rate for v in self._buffer]
-        spo2s = [v.spo2 for v in self._buffer]
-        hrvs = [v.hrv for v in self._buffer]
+        try:
+            # TODO: Replace this import and constructor with the confirmed
+            # ZETIC Melange SDK package from the LA Hacks starter pack.
+            from zetic_melange import ZeticMelange  # type: ignore
 
-        def z(vals: list[float]) -> float:
-            mean = sum(vals) / len(vals)
-            std = (sum((x - mean) ** 2 for x in vals) / len(vals)) ** 0.5
-            return abs(vals[-1] - mean) / (std + 1e-6)
+            self._zetic_model = ZeticMelange(
+                model_key=os.environ["ZETIC_MODEL_KEY"],
+                personal_key=os.environ["ZETIC_PERSONAL_KEY"],
+            )
+            print("[ZETIC] Melange SDK initialized")
+            return True
+        except Exception as exc:
+            print(f"[ZETIC] SDK unavailable ({exc}); using deterministic mock scorer")
+            return False
 
-        # Normalise to [0, 1] — a z-score of 3+ maps to ~1.0
-        score = min(1.0, (z(hrs) * 0.5 + z(spo2s) * 0.3 + z(hrvs) * 0.2) / 3.0)
-        return round(score, 4)
+    def add_vitals(self, payload: VitalsPayload) -> Optional[AnomalyEvent]:
+        recent_buffer = self._buffers[payload.patient_id]
+        score = self.calculate_deviation_score(payload, recent_buffer)
+        recent_buffer.append(payload)
 
-    def _zetic_score(self) -> float:
-        if len(self._buffer) < BUFFER_SIZE:
-            return 0.0
+        if score < self.threshold:
+            return None
+
+        payload.anomaly_flagged = True
+        event = AnomalyEvent(
+            patient_id=payload.patient_id,
+            signal_type="HR+SpO2+HRV",
+            deviation_score=score,
+            vitals_snapshot=payload,
+        )
+
+        try:
+            save_anomaly(event)
+        except Exception as exc:
+            print(f"[Mongo] anomaly save skipped: {exc}")
+
+        return event
+
+    def calculate_deviation_score(
+        self,
+        payload: VitalsPayload,
+        recent_buffer: Deque[VitalsPayload],
+    ) -> float:
+        if self._zetic_available:
+            # TODO: Replace this adapter with real ZETIC Melange on-device
+            # inference once the SDK/model artifact is available.
+            return self._calculate_zetic_score(payload, recent_buffer)
+
+        score = 0.0
+        if payload.heart_rate > 120:
+            score += 0.45
+        if payload.spo2 < 95:
+            score += 0.25
+        if payload.hrv < 30:
+            score += 0.25
+        if recent_buffer:
+            avg_hr = sum(v.heart_rate for v in recent_buffer) / len(recent_buffer)
+            if payload.heart_rate - avg_hr > 25:
+                score += 0.15
+        return round(min(score, 1.0), 4)
+
+    def _calculate_zetic_score(
+        self,
+        payload: VitalsPayload,
+        recent_buffer: Deque[VitalsPayload],
+    ) -> float:
         sequence = [
             [v.heart_rate, v.spo2, v.hrv]
-            for v in self._buffer
+            for v in [*recent_buffer, payload][-self.buffer_size :]
         ]
-        result = self._model.infer({"input": sequence})
+        # TODO: Confirm exact SDK input/output names. The fallback scorer keeps
+        # the same public interface for the rest of the demo pipeline.
+        result = self._zetic_model.infer({"vitals": sequence})
         return float(result.get("deviation_score", 0.0))
 
-    def ingest(self, payload: VitalsPayload) -> Optional[AnomalyEvent]:
-        self._buffer.append(payload)
-        score = self._zetic_score() if self._zetic_available else self._heuristic_score()
 
-        if score >= ANOMALY_THRESHOLD:
-            return AnomalyEvent(
-                patient_id=payload.patient_id,
-                deviation_score=score,
-                vitals_snapshot=payload,
-            )
-        return None
-
-
-_detector = MelangeDetector()
+_detector = ZeticAnomalyDetector()
 
 
 def process_vitals(payload: VitalsPayload) -> Optional[AnomalyEvent]:
-    """Public interface used by Agent 1."""
-    return _detector.ingest(payload)
+    return _detector.add_vitals(payload)

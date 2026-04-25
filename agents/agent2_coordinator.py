@@ -23,9 +23,6 @@ from uagents_core.contrib.protocols.chat import (
 )
 from uagents import Agent, Context, Protocol 
 
-from datetime import datetime, timezone
-from uuid import UUID, uuid4
-
 import httpx
 from dotenv import load_dotenv
 load_dotenv()
@@ -98,10 +95,10 @@ async def handle_anomaly(ctx: Context, sender: str, msg: AnomalyMessage):
         heart_rate=msg.heart_rate,
         spo2=msg.spo2,
         hrv=msg.hrv,
-        device_id="careflow-demo-device-001",
+        device_id=os.getenv("DEVICE_ID", "careflow_watch_001"),
     )
     anomaly_event = AnomalyEvent(
-        anomaly_id=UUID(msg.anomaly_id),
+        anomaly_id=msg.anomaly_id,
         patient_id=msg.patient_id,
         signal_type=msg.signal_type,
         deviation_score=msg.deviation_score,
