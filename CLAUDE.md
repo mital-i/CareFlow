@@ -38,7 +38,7 @@ curl -X POST http://localhost:8000/trigger-anomaly \
 
 ## Architecture
 
-CareFlow is a linear event pipeline: **Vitals Generator → ZETIC Edge Detection → AnomalyEvent → Gemini/Agent Assessment → Dashboard**.
+CareFlow is a linear event pipeline: **Vitals Generator → Heuristic Anomaly Detection → AnomalyEvent → MedGemma/Agent Assessment → Dashboard**.
 
 All Python modules run from the repo root and use `sys.path.insert(0, "..")` so imports are always relative to root (e.g. `from models.schemas import ...`, not relative imports).
 
@@ -46,11 +46,11 @@ All Python modules run from the repo root and use `sys.path.insert(0, "..")` so 
 
 ```
 vitals/generator.py  ──1 Hz──▶  vitals/api.py SSE /vitals/stream/{patient_id}
-  └──▶  zetic/melange_agent.py  ──AnomalyEvent──▶  Mongo anomaly_events
+  └──▶  vitals/anomaly.py (AnomalyDetector)  ──AnomalyEvent──▶  Mongo anomaly_events
 
-Optional agent path:
-agents/agent1_monitor.py  ──ZETIC/process_vitals──▶  Fetch.ai Chat Protocol
-  ──▶ agents/agent2_coordinator.py ──▶ risk/classifier.py (Gemini)
+Agent path:
+agents/agent1_monitor.py  ──process_vitals──▶  Fetch.ai Chat Protocol
+  ──▶ agents/agent2_coordinator.py ──▶ risk/classifier.py (MedGemma via Ollama)
   ──▶ POST /internal/broadcast ──▶ WebSocket /ws ──▶ careflow-ui (React)
 ```
 
@@ -58,11 +58,11 @@ The demo trigger (`POST /trigger-anomaly`) updates per-patient in-memory state i
 
 ### Key design decisions
 
-**Two Fetch.ai uAgents, not five.** Agent 1 (Monitor, port 8001) owns the ZETIC loop and publishes `AnomalyMessage`. Agent 2 (Coordinator, port 8002) owns Gemini classification and broadcasts results to the dashboard. Their Agentverse addresses live in `agents/addresses.py` and are loaded via env vars `AGENT_MONITOR_ADDRESS` / `AGENT_COORDINATOR_ADDRESS`.
+**Two Fetch.ai uAgents, not five.** Agent 1 (Monitor, port 8001) owns the anomaly detection loop and publishes `AnomalyMessage`. Agent 2 (Coordinator, port 8002) owns MedGemma classification and broadcasts results to the dashboard. Their Agentverse addresses live in `agents/addresses.py` and are loaded via env vars `AGENT_MONITOR_ADDRESS` / `AGENT_COORDINATOR_ADDRESS`.
 
 **Coordinator-to-dashboard bridge.** The Coordinator agent is a separate process from FastAPI, so it cannot call `manager.broadcast()` directly. It POSTs to `POST /internal/broadcast` (FastAPI), which calls the WebSocket manager. This is the glue between the agent world and the UI world.
 
-**Fallbacks everywhere.** `zetic/melange_agent.py` falls back to a z-score heuristic if the ZETIC SDK isn't installed. `risk/classifier.py` falls back to rule-based thresholds if the Gemini API fails. Both paths produce identical output types.
+**Fallback in risk classifier.** `risk/classifier.py` falls back to rule-based thresholds if Ollama/MedGemma is unavailable. Both paths produce identical output types.
 
 **Mongo collections stay simple.** Person 1's data layer uses only `patients`, `vitals_history`, and `anomaly_events`. The seeded demo patient is `patient-001` / Margaret Chen.
 
@@ -70,9 +70,9 @@ The demo trigger (`POST /trigger-anomaly`) updates per-patient in-memory state i
 
 Copy `.env.example` → `.env` and fill in:
 - `MONGODB_URI` — Atlas M0 connection string
-- `OLLAMA_HOST` / `GEMMA_MODEL` — Ollama must be running locally (`ollama serve`); default model is `gemma2:2b`
-- `AGENT_MONITOR_SEED` / `AGENT_COORDINATOR_SEED` — deterministic agent identity; print the generated address on first run and set `AGENT_MONITOR_ADDRESS` / `AGENT_COORDINATOR_ADDRESS`
-- `ZETIC_MODEL_KEY` / `ZETIC_PERSONAL_KEY` — only needed if using real ZETIC SDK (heuristic fallback works without these)
+- `OLLAMA_HOST` / `GEMMA_MODEL` — Ollama must be running locally (`ollama serve`); pull MedGemma with `ollama pull medgemma`
+- `AGENT_MONITOR_SEED_PHRASE` / `AGENT_COORDINATOR_SEED_PHRASE` — deterministic agent identity; address is printed to console on first run, then set `AGENT_MONITOR_ADDRESS` / `AGENT_COORDINATOR_ADDRESS`
+- `AGENTVERSE_KEY` — Fetch.ai Agentverse API key for mailbox messaging
 
 ### React dashboard key bindings
 - **D** — toggle Demo Controls overlay (Trigger Anomaly button)
