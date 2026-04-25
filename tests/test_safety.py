@@ -4,7 +4,6 @@ import json
 import os
 import sys
 
-# Ensure root directory is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from models.schemas import AnomalyEvent, VitalsPayload, RiskAssessment, SeverityLevel, SafetyStatus
@@ -39,7 +38,6 @@ class TestAISafety(unittest.TestCase):
 
     @patch('httpx.post')
     def test_evaluate_safety_pass(self, mock_post):
-        # Mock a successful safety pass from Gemma
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
@@ -82,7 +80,6 @@ class TestAISafety(unittest.TestCase):
 
     @patch('httpx.post')
     def test_evaluate_safety_network_error(self, mock_post):
-        # Mock a network error
         mock_post.side_effect = Exception("Connection refused")
 
         report = evaluate_safety(self.anomaly_event, self.assessment)
@@ -93,14 +90,12 @@ class TestAISafety(unittest.TestCase):
     @patch('risk.classifier._call_gemma')
     @patch('risk.classifier.evaluate_safety')
     def test_classify_risk_integration(self, mock_evaluate, mock_call_gemma):
-        # Mock primary classification
         mock_call_gemma.return_value = {
             "risk_score": 0.5,
             "severity_level": "MEDIUM",
             "reasoning_context": "Mildly elevated.",
             "doctor_note": "Monitor closely."
         }
-        # Mock safety evaluation
         mock_evaluate.return_value = MagicMock(status=SafetyStatus.PASS)
 
         final_assessment = classify_risk(self.anomaly_event)

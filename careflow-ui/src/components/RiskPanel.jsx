@@ -9,7 +9,7 @@ const ACTION_LABEL = {
   LOG_ONLY:        'Logged',
   PATIENT_ALERT:   'Patient Alerted',
   PROVIDER_NOTIFY: 'Provider Notified',
-  ER_DISPATCH:     '🚨 ER Dispatch',
+  ER_DISPATCH:     'ER Dispatch',
 }
 
 const SAFETY_STYLES = {
