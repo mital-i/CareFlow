@@ -11,7 +11,17 @@ import asyncio
 import json
 import os
 import sys
+
+from agents.agent1_monitor import AGENT_SEED
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from uagents_core.contrib.protocols.chat import (
+    ChatAcknowledgement,
+    ChatMessage,
+    EndSessionContent,
+    TextContent,
+    chat_protocol_spec,
+)
+from uagents import Agent, Context, Protocol 
 
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
@@ -20,24 +30,24 @@ import httpx
 from dotenv import load_dotenv
 load_dotenv()
 
-from uagents import Agent, Context  # type: ignore
-
 from agents.message_types import AnomalyMessage, RiskMessage, ActionMessage
 from models.schemas import (
     AnomalyEvent, VitalsPayload, ActionTier, SeverityLevel
 )
 from risk.classifier import classify_risk
 
-AGENT_SEED = os.getenv("AGENT_COORDINATOR_SEED", "careflow-coordinator-agent-seed-phrase-002")
+AGENT_COORDINATOR_SEED_PHRASE = os.getenv("AGENT_COORDINATOR_SEED_PHRASE", "your-agent-seed-phrase-here")
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 coordinator_agent = Agent(
     name="CareFlow-Coordinator",
-    seed=AGENT_SEED,
-    port=8002,
-    endpoint=["http://localhost:8002/submit"],
+    seed=AGENT_COORDINATOR_SEED_PHRASE,
+    mailbox=True,
+    port=8002, 
+    publish_agent_details=True,
 )
 
+protocol = Protocol(spec=chat_protocol_spec)
 
 def _severity_to_tier(severity: SeverityLevel) -> ActionTier:
     mapping = {

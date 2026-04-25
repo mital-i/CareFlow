@@ -16,24 +16,35 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv()
 
-from uagents import Agent, Context  # type: ignore
+from uagents import Agent, Context, Protocol 
 
 from agents.addresses import COORDINATOR_AGENT_ADDRESS
 from agents.message_types import AnomalyMessage, VitalsMessage
 from models.schemas import VitalsPayload
 from vitals.generator import generate_vitals
 from zetic.melange_agent import process_vitals
+from uagents_core.contrib.protocols.chat import (
+    ChatAcknowledgement,
+    ChatMessage,
+    EndSessionContent,
+    TextContent,
+    chat_protocol_spec,
+)
 
 AGENT_SEED = os.getenv("AGENT_MONITOR_SEED", "careflow-monitor-agent-seed-phrase-001")
 DEMO_PATIENT_ID = os.getenv("DEMO_PATIENT_ID", "patient-001")
+AGENTVERSE_KEY = os.getenv("AGENTVERSE_KEY", "your-agentverse-key-here")
+AGENT_MONITOR_SEED_PHRASE = os.getenv("AGENT_MONITOR_SEED_PHRASE", "your-agent-seed-phrase-here")
 
 monitor_agent = Agent(
     name="CareFlow-VitalMonitor",
     seed=AGENT_SEED,
-    port=8001,
-    endpoint=["http://localhost:8001/submit"],
+    mailbox=True,
+    port=8001, 
+    publish_agent_details=True,
 )
 
+protocol = Protocol(spec=chat_protocol_spec)
 
 @monitor_agent.on_event("startup")
 async def on_startup(ctx: Context):
