@@ -123,6 +123,7 @@ async def handle_anomaly(ctx: Context, sender: str, msg: AnomalyMessage):
         "doctor_note": assessment.doctor_note,
         "action_tier": tier.value,
         "provider_message": provider_msg,
+        "safety_report": assessment.safety_report.model_dump() if assessment.safety_report else None,
         "generated_at": assessment.generated_at.isoformat(),
     })
 

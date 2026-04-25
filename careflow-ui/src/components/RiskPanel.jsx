@@ -12,9 +12,17 @@ const ACTION_LABEL = {
   ER_DISPATCH:     '🚨 ER Dispatch',
 }
 
+const SAFETY_STYLES = {
+  PASS:      { text: 'text-cyan-400',   badge: 'bg-cyan-900 text-cyan-300 border-cyan-800',   icon: '🛡️', label: 'Safety Verified' },
+  FAIL:      { text: 'text-red-400',    badge: 'bg-red-900 text-red-300 border-red-800',   icon: '⚠️', label: 'Safety Concern' },
+  UNCERTAIN: { text: 'text-gray-400',   badge: 'bg-gray-800 text-gray-400 border-gray-700',   icon: '❓', label: 'Unverified' },
+}
+
 export default function RiskPanel({ assessment }) {
   if (!assessment) return null
   const s = SEVERITY_STYLES[assessment.severity_level] || SEVERITY_STYLES.LOW
+  const safety = SAFETY_STYLES[assessment.safety_report?.status] || SAFETY_STYLES.UNCERTAIN
+  
   const pct = Math.round(assessment.risk_score * 100)
   const isCritical = assessment.severity_level === 'CRITICAL'
 
@@ -39,6 +47,14 @@ export default function RiskPanel({ assessment }) {
       </div>
 
       <p className="text-sm text-gray-300 mb-2 leading-relaxed">{assessment.reasoning_context}</p>
+
+      {assessment.safety_report?.status === 'FAIL' && (
+        <div className="mb-3 p-2 rounded bg-red-950/50 border border-red-900/50">
+          <p className="text-[11px] text-red-300 font-medium">
+            <span className="font-bold">Safety Conflict:</span> {assessment.safety_report.concerns}
+          </p>
+        </div>
+      )}
 
       <div className="border-t border-gray-800 pt-2 mt-2 flex items-start justify-between gap-3">
         <p className="text-xs text-gray-400 flex-1">
