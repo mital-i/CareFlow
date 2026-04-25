@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
-from typing import Optional
 from uuid import UUID, uuid4
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from .vitals import VitalsPayload
 
 
@@ -13,3 +12,10 @@ class AnomalyEvent(BaseModel):
     deviation_score: float  # 0.0–1.0; threshold default 0.65
     vitals_snapshot: VitalsPayload
     detected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @field_validator("detected_at")
+    @classmethod
+    def _detected_at_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)

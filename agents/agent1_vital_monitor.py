@@ -3,9 +3,7 @@ Agent 1 — Vital Monitoring Agent
 Runs ZETIC Melange anomaly detection and publishes AnomalyEvents to Agent 2 via Agentverse.
 Register on Agentverse, then update agents/addresses.py with the printed address.
 """
-import asyncio
 import os
-from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from uagents import Agent, Context
@@ -14,47 +12,57 @@ load_dotenv()
 
 from agents.addresses import AGENT2_ADDRESS
 from agents.message_types import AnomalyEventMessage
-from models.vitals import VitalsPayload
-from vitals.generator import stream_vitals
+from agents.protocols.vitals_protocol import chat_protocol, vitals_protocol
+from vitals.generator import generate_one
 from zetic.melange_agent import MelangeAgent
-from db.db import save_vitals
+from db.db import flag_vitals_anomaly, save_vitals, setup_database
 
 SEED = os.getenv("AGENT1_SEED", "agent1_careflow_vital_monitor_seed_phrase_change_me")
+PATIENT_IDS = [p.strip() for p in os.getenv("DEMO_PATIENT_IDS", "P001,P002,P003").split(",") if p.strip()]
+AGENT1_ENDPOINT = os.getenv("AGENT1_ENDPOINT", "http://localhost:8001/submit")
+AGENT1_PUBLIC_ENDPOINT = os.getenv("AGENT1_PUBLIC_ENDPOINT")
+ENDPOINTS = [AGENT1_PUBLIC_ENDPOINT or AGENT1_ENDPOINT]
 
 agent = Agent(
     name="CareFlow-VitalMonitor",
     seed=SEED,
     port=8001,
-    endpoint=["http://localhost:8001/submit"],
+    endpoint=ENDPOINTS,
 )
 
-_melange = MelangeAgent(patient_id="ALL")  # one per patient in production
+agent.include(vitals_protocol)
+if chat_protocol is not None:
+    agent.include(chat_protocol, publish_manifest=True)
+
+_melange_by_patient = {patient_id: MelangeAgent(patient_id=patient_id) for patient_id in PATIENT_IDS}
 
 
 @agent.on_event("startup")
 async def on_startup(ctx: Context):
+    setup_database()
     ctx.logger.info(f"Agent 1 address: {agent.address}")
+    ctx.logger.info(f"Agent 1 endpoint(s): {ENDPOINTS}")
     ctx.logger.info("Vital Monitoring Agent started — streaming vitals for all patients")
 
 
 @agent.on_interval(period=1.0)
 async def monitor_vitals(ctx: Context):
     """Every second, generate vitals for all demo patients and run anomaly detection."""
-    patient_ids = ["P001", "P002", "P003"]
-    for patient_id in patient_ids:
-        from vitals.generator import generate_one
-        payload = generate_one(patient_id, 0)
+    for patient_id in PATIENT_IDS:
+        payload = generate_one(patient_id)
 
         doc = payload.model_dump()
-        doc["timestamp"] = doc["timestamp"].isoformat()
-        save_vitals({**doc})
+        doc["anomaly_flagged"] = False
+        save_vitals(doc)
 
-        melange = MelangeAgent(patient_id=patient_id)
+        melange = _melange_by_patient[patient_id]
         anomaly = melange.push_vitals(payload)
 
         if anomaly:
+            flag_vitals_anomaly(patient_id, payload.timestamp, device_id=payload.device_id)
             ctx.logger.info(
-                f"[ANOMALY] patient={patient_id} score={anomaly.deviation_score} type={anomaly.signal_type}"
+                f"[ANOMALY] detected_at={anomaly.detected_at.isoformat()} "
+                f"patient={patient_id} score={anomaly.deviation_score} type={anomaly.signal_type}"
             )
             msg = AnomalyEventMessage(
                 anomaly_id=str(anomaly.anomaly_id),
@@ -66,7 +74,10 @@ async def monitor_vitals(ctx: Context):
                 hrv=anomaly.vitals_snapshot.hrv,
                 detected_at=anomaly.detected_at.isoformat(),
             )
-            await ctx.send(AGENT2_ADDRESS, msg)
+            if AGENT2_ADDRESS and not AGENT2_ADDRESS.endswith("..."):
+                await ctx.send(AGENT2_ADDRESS, msg)
+            else:
+                ctx.logger.warning("AGENT2_ADDRESS is not configured; anomaly was logged but not sent")
 
 
 if __name__ == "__main__":
