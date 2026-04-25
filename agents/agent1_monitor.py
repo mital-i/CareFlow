@@ -31,7 +31,6 @@ from uagents_core.contrib.protocols.chat import (
     chat_protocol_spec,
 )
 
-AGENT_SEED = os.getenv("AGENT_MONITOR_SEED", "careflow-monitor-agent-seed-phrase-001")
 DEMO_PATIENT_ID = os.getenv("DEMO_PATIENT_ID", "patient-001")
 AGENTVERSE_KEY = os.getenv("AGENTVERSE_KEY", "your-agentverse-key-here")
 AGENT_MONITOR_SEED_PHRASE = os.getenv("AGENT_MONITOR_SEED_PHRASE", "your-agent-seed-phrase-here")
