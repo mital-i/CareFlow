@@ -25,7 +25,7 @@ from vitals.generator import generate_vitals
 from zetic.melange_agent import process_vitals
 
 AGENT_SEED = os.getenv("AGENT_MONITOR_SEED", "careflow-monitor-agent-seed-phrase-001")
-DEMO_PATIENT_ID = os.getenv("DEMO_PATIENT_ID", "patient-001")
+DEMO_PATIENT_ID = os.getenv("DEMO_PATIENT_ID", os.getenv("DEFAULT_PATIENT_ID", "patient-001"))
 
 monitor_agent = Agent(
     name="CareFlow-VitalMonitor",

@@ -6,6 +6,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from models.vitals import AnomalyEvent, VitalsPayload
+
 
 class SeverityLevel(str, Enum):
     LOW = "LOW"
@@ -21,24 +23,6 @@ class ActionTier(str, Enum):
     ER_DISPATCH = "ER_DISPATCH"
 
 
-class VitalsPayload(BaseModel):
-    patient_id: str
-    heart_rate: float
-    spo2: float
-    hrv: float
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    device_id: str = "careflow-demo-device-001"
-
-
-class AnomalyEvent(BaseModel):
-    anomaly_id: UUID = Field(default_factory=uuid4)
-    patient_id: str
-    signal_type: str = "HR+HRV+SpO2"
-    deviation_score: float
-    vitals_snapshot: VitalsPayload
-    detected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
 class RiskAssessment(BaseModel):
     assessment_id: UUID = Field(default_factory=uuid4)
     patient_id: str
@@ -46,7 +30,7 @@ class RiskAssessment(BaseModel):
     severity_level: SeverityLevel
     reasoning_context: str
     doctor_note: str
-    anomaly_ref: UUID
+    anomaly_ref: str
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -55,5 +39,5 @@ class ActionDecision(BaseModel):
     patient_id: str
     action_tier: ActionTier
     provider_message: Optional[str] = None
-    assessment_ref: UUID
+    assessment_ref: str
     executed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

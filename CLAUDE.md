@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies (from repo root)
 pip install -r requirements.txt
 
-# Seed demo patients into MongoDB (required before first run)
+# Seed the demo patient into MongoDB (required before first run)
 python scripts/seed.py
 
 # Start everything at once
@@ -38,20 +38,23 @@ curl -X POST http://localhost:8000/trigger-anomaly \
 
 ## Architecture
 
-CareFlow is a linear event pipeline: **Vitals → ZETIC Alert → Gemini Assessment → Dashboard**.
+CareFlow is a linear event pipeline: **Vitals Generator → ZETIC Edge Detection → AnomalyEvent → Gemini/Agent Assessment → Dashboard**.
 
 All Python modules run from the repo root and use `sys.path.insert(0, "..")` so imports are always relative to root (e.g. `from models.schemas import ...`, not relative imports).
 
 ### Data flow
 
 ```
-vitals/generator.py  ──1 Hz──▶  zetic/melange_agent.py  ──AnomalyEvent──▶
-agents/agent1_monitor.py  ──Fetch.ai Chat Protocol──▶  agents/agent2_coordinator.py
-  ──risk/classifier.py (Gemini)──▶  POST /internal/broadcast  ──▶  WebSocket /ws
-  ──▶  careflow-ui (React)
+vitals/generator.py  ──1 Hz──▶  vitals/api.py SSE /vitals/stream/{patient_id}
+  └──▶  zetic/melange_agent.py  ──AnomalyEvent──▶  Mongo anomaly_events
+
+Optional agent path:
+agents/agent1_monitor.py  ──ZETIC/process_vitals──▶  Fetch.ai Chat Protocol
+  ──▶ agents/agent2_coordinator.py ──▶ risk/classifier.py (Gemini)
+  ──▶ POST /internal/broadcast ──▶ WebSocket /ws ──▶ careflow-ui (React)
 ```
 
-The demo trigger (`POST /trigger-anomaly`) mutates a module-level `_anomaly_until` float in `vitals/generator.py`; all subsequent calls to `generate_vitals()` read this flag and produce elevated values.
+The demo trigger (`POST /trigger-anomaly`) updates per-patient in-memory state in `vitals/generator.py`. The next vitals reading for that patient immediately spikes HR, dips SpO2, and drops HRV for the demo window before smoothly recovering.
 
 ### Key design decisions
 
@@ -61,7 +64,7 @@ The demo trigger (`POST /trigger-anomaly`) mutates a module-level `_anomaly_unti
 
 **Fallbacks everywhere.** `zetic/melange_agent.py` falls back to a z-score heuristic if the ZETIC SDK isn't installed. `risk/classifier.py` falls back to rule-based thresholds if the Gemini API fails. Both paths produce identical output types.
 
-**Shared Pydantic models vs Fetch.ai models.** `models/schemas.py` holds Pydantic v2 models used throughout Python. `agents/message_types.py` holds separate `uagents.Model` subclasses required by the Fetch.ai Chat Protocol — the Coordinator manually converts between them.
+**Mongo collections stay simple.** Person 1's data layer uses only `patients`, `vitals_history`, and `anomaly_events`. The seeded demo patient is `patient-001` / Margaret Chen.
 
 ### Environment setup
 
@@ -75,4 +78,4 @@ Copy `.env.example` → `.env` and fill in:
 - **D** — toggle Demo Controls overlay (Trigger Anomaly button)
 - **F** — toggle System Flow Diagram (for judge pitch)
 
-WebSocket events from the backend all have shape `{ type: string, data: object }`. Currently the only event type is `"risk_assessment"`.
+SSE vitals events from `/vitals/stream/{patient_id}` have shape `{ type: "vitals", data: VitalsPayload }`, with named `"anomaly"` SSE events carrying `{ type: "anomaly", data: AnomalyEvent }`. WebSocket events from the backend all have shape `{ type: string, data: object }`; the main dashboard WebSocket event type remains `"risk_assessment"`.

@@ -64,9 +64,17 @@ export default function App() {
   useEffect(() => {
     const es = new EventSource(`${API_BASE}/vitals/stream/${SELECTED_PATIENT}`)
     es.onmessage = (e) => {
-      const payload = JSON.parse(e.data)
+      const event = JSON.parse(e.data)
+      const payload = event.type === 'vitals' ? event.data : event
       setVitals((prev) => [...prev.slice(-59), { ...payload, time: new Date(payload.timestamp).toLocaleTimeString() }])
     }
+    es.addEventListener('anomaly', (e) => {
+      const event = JSON.parse(e.data)
+      if (event.type === 'anomaly') {
+        setFlashRed(true)
+        setTimeout(() => setFlashRed(false), 1600)
+      }
+    })
     return () => es.close()
   }, [])
 

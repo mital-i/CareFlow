@@ -3,7 +3,7 @@
 Endpoints:
   GET  /patients                          — list demo patients
   GET  /vitals/stream/{patient_id}        — SSE live vitals (proxied from vitals.api)
-  GET  /vitals/latest/{patient_id}        — single vitals reading
+  GET  /vitals/current/{patient_id}       — latest vitals reading
   POST /trigger-anomaly                   — inject demo anomaly
   GET  /agents/status                     — heartbeat for both agents
   POST /internal/broadcast               — called by Coordinator agent to push WS events
@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from api.ws_manager import manager
+from db.db import get_db, seed_demo_patient_if_missing
 from vitals.api import router as vitals_router
 
 app = FastAPI(title="CareFlow API", version="1.0.0")
@@ -68,6 +69,20 @@ DEMO_PATIENTS = [
 ]
 
 
+@app.on_event("startup")
+async def startup() -> None:
+    try:
+        get_db().command("ping")
+        print("[CareFlow] Mongo connected")
+        seed_demo_patient_if_missing()
+        print("[CareFlow] Demo patient ready")
+    except Exception as exc:
+        print(f"[CareFlow] Mongo startup skipped: {exc}")
+
+    print("[CareFlow] Vitals stream ready: GET /vitals/stream/patient-001")
+    print("[CareFlow] Trigger endpoint ready: POST /trigger-anomaly")
+
+
 @app.get("/patients")
 async def list_patients():
     return DEMO_PATIENTS
@@ -101,8 +116,3 @@ async def websocket_endpoint(ws: WebSocket):
             await ws.receive_text()  # keep connection alive
     except WebSocketDisconnect:
         manager.disconnect(ws)
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}

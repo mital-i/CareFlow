@@ -27,7 +27,7 @@ if ! curl -sf "$OLLAMA_HOST" > /dev/null 2>&1; then
 fi
 
 # Seed DB (idempotent — safe to re-run)
-echo "▶ Seeding demo patients…"
+echo "▶ Seeding demo patient…"
 python scripts/seed.py
 
 echo "▶ Starting FastAPI gateway on :8000…"
