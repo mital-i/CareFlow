@@ -59,7 +59,7 @@ The demo trigger (`POST /trigger-anomaly`) mutates a module-level `_anomaly_unti
 
 **Coordinator-to-dashboard bridge.** The Coordinator agent is a separate process from FastAPI, so it cannot call `manager.broadcast()` directly. It POSTs to `POST /internal/broadcast` (FastAPI), which calls the WebSocket manager. This is the glue between the agent world and the UI world.
 
-**Fallbacks everywhere.** `zetic/melange_agent.py` falls back to a z-score heuristic if the ZETIC SDK isn't installed. `risk/classifier.py` falls back to rule-based thresholds if Vertex AI fails. Both paths produce identical output types.
+**Fallbacks everywhere.** `zetic/melange_agent.py` falls back to a z-score heuristic if the ZETIC SDK isn't installed. `risk/classifier.py` falls back to rule-based thresholds if the Gemini API fails. Both paths produce identical output types.
 
 **Shared Pydantic models vs Fetch.ai models.** `models/schemas.py` holds Pydantic v2 models used throughout Python. `agents/message_types.py` holds separate `uagents.Model` subclasses required by the Fetch.ai Chat Protocol — the Coordinator manually converts between them.
 
@@ -67,7 +67,7 @@ The demo trigger (`POST /trigger-anomaly`) mutates a module-level `_anomaly_unti
 
 Copy `.env.example` → `.env` and fill in:
 - `MONGODB_URI` — Atlas M0 connection string
-- `GCP_PROJECT_ID` + `GOOGLE_APPLICATION_CREDENTIALS` — for Gemini
+- `OLLAMA_HOST` / `GEMMA_MODEL` — Ollama must be running locally (`ollama serve`); default model is `gemma2:2b`
 - `AGENT_MONITOR_SEED` / `AGENT_COORDINATOR_SEED` — deterministic agent identity; print the generated address on first run and set `AGENT_MONITOR_ADDRESS` / `AGENT_COORDINATOR_ADDRESS`
 - `ZETIC_MODEL_KEY` / `ZETIC_PERSONAL_KEY` — only needed if using real ZETIC SDK (heuristic fallback works without these)
 
