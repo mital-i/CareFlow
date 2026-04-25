@@ -29,15 +29,27 @@ export default function App() {
   const [showDemoControls, setShowDemoControls] = useState(false)
   const wsRef = useRef(null)
   const bannerTimerRef = useRef(null)
+  const reconnectTimerRef = useRef(null)
+  const shouldReconnectRef = useRef(false)
 
   const connectWs = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
+      return
+    }
+
+    shouldReconnectRef.current = true
+    clearTimeout(reconnectTimerRef.current)
     const ws = new WebSocket(WS_URL)
     wsRef.current = ws
 
     ws.onopen = () => setWsConnected(true)
     ws.onclose = () => {
+      if (wsRef.current !== ws) return
+      wsRef.current = null
       setWsConnected(false)
-      setTimeout(connectWs, 2000)
+      if (shouldReconnectRef.current) {
+        reconnectTimerRef.current = setTimeout(connectWs, 2000)
+      }
     }
     ws.onerror = () => ws.close()
 
@@ -45,7 +57,12 @@ export default function App() {
       const { type, data } = JSON.parse(e.data)
       if (type === 'risk_assessment') {
         setLatestAssessment(data)
-        setActionLog((prev) => [data, ...prev].slice(0, 50))
+        setActionLog((prev) => {
+          if (data.assessment_id && prev.some((entry) => entry.assessment_id === data.assessment_id)) {
+            return prev
+          }
+          return [data, ...prev].slice(0, 50)
+        })
 
         const severity = data.severity_level
         if (['HIGH', 'CRITICAL'].includes(severity)) {
@@ -65,7 +82,10 @@ export default function App() {
   useEffect(() => {
     connectWs()
     return () => {
+      shouldReconnectRef.current = false
+      clearTimeout(reconnectTimerRef.current)
       wsRef.current?.close()
+      wsRef.current = null
       clearTimeout(bannerTimerRef.current)
     }
   }, [connectWs])
