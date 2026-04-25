@@ -4,9 +4,13 @@ Runs ZETIC Melange anomaly detection and publishes AnomalyEvents to Agent 2 via 
 Register on Agentverse, then update agents/addresses.py with the printed address.
 """
 import os
+import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
 from uagents import Agent, Context
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 load_dotenv()
 
@@ -20,6 +24,7 @@ from db.db import flag_vitals_anomaly, save_vitals, setup_database
 SEED = os.getenv("AGENT1_SEED", "agent1_careflow_vital_monitor_seed_phrase_change_me")
 PATIENT_IDS = [p.strip() for p in os.getenv("DEMO_PATIENT_IDS", "P001,P002,P003").split(",") if p.strip()]
 AGENT1_ENDPOINT = os.getenv("AGENT1_ENDPOINT", "http://localhost:8001/submit")
+# TODO: Replace AGENT1_PUBLIC_ENDPOINT with a real public tunnel URL before Agentverse judging.
 AGENT1_PUBLIC_ENDPOINT = os.getenv("AGENT1_PUBLIC_ENDPOINT")
 ENDPOINTS = [AGENT1_PUBLIC_ENDPOINT or AGENT1_ENDPOINT]
 
