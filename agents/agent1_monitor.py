@@ -16,12 +16,12 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv()
 
-from uagents import Agent, Context, Protocol 
+import httpx
+from uagents import Agent, Context, Protocol
 
 from agents.addresses import COORDINATOR_AGENT_ADDRESS
 from agents.message_types import AnomalyMessage, VitalsMessage
 from models.schemas import VitalsPayload
-from vitals.generator import generate_vitals
 from vitals.anomaly import process_vitals
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
@@ -32,14 +32,14 @@ from uagents_core.contrib.protocols.chat import (
 )
 
 DEMO_PATIENT_ID = os.getenv("DEMO_PATIENT_ID", "patient-001")
-AGENTVERSE_KEY = os.getenv("AGENTVERSE_KEY", "your-agentverse-key-here")
 AGENT_MONITOR_SEED_PHRASE = os.getenv("AGENT_MONITOR_SEED_PHRASE", "your-agent-seed-phrase-here")
+API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 monitor_agent = Agent(
     name="CareFlow-VitalMonitor",
     seed=AGENT_MONITOR_SEED_PHRASE,
-    mailbox=AGENTVERSE_KEY,
     port=8001,
+    endpoint=["http://localhost:8001/submit"],
     publish_agent_details=True,
 )
 
@@ -53,7 +53,14 @@ async def on_startup(ctx: Context):
 
 @monitor_agent.on_interval(period=1.0)
 async def tick(ctx: Context):
-    payload: VitalsPayload = generate_vitals(DEMO_PATIENT_ID)
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{API_BASE}/vitals/current/{DEMO_PATIENT_ID}", timeout=3.0)
+            resp.raise_for_status()
+        payload = VitalsPayload(**resp.json())
+    except Exception as exc:
+        ctx.logger.warning(f"[Monitor] Failed to fetch vitals: {exc}")
+        return
 
     ctx.logger.debug(
         f"[Monitor] HR={payload.heart_rate} SpO2={payload.spo2} HRV={payload.hrv}"
