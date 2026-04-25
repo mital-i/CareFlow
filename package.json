@@ -1,0 +1,12 @@
+{
+  "name": "careflow",
+  "private": true,
+  "workspaces": [
+    "careflow-ui"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w careflow-ui",
+    "build": "npm run build -w careflow-ui",
+    "preview": "npm run preview -w careflow-ui"
+  }
+}

@@ -39,6 +39,7 @@ monitor_agent = Agent(
     name="CareFlow-VitalMonitor",
     seed=AGENT_MONITOR_SEED_PHRASE,
     port=8001,
+    mailbox=True,
     endpoint=["http://localhost:8001/submit"],
     publish_agent_details=True,
 )

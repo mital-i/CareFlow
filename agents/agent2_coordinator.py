@@ -39,6 +39,7 @@ coordinator_agent = Agent(
     name="CareFlow-Coordinator",
     seed=AGENT_COORDINATOR_SEED_PHRASE,
     port=8002,
+    mailbox=True,
     endpoint=["http://localhost:8002/submit"],
     publish_agent_details=True,
 )
