@@ -71,7 +71,12 @@ def normalize_doc(doc: Any) -> Dict[str, Any]:
 def get_db() -> Database:
     global _client
     if _client is None:
-        uri = os.environ["MONGODB_URI"]
+        uri = os.getenv("MONGODB_URI")
+        if not uri:
+            raise RuntimeError(
+                "MONGODB_URI is not set. Create /Users/student/CareFlow/.env from "
+                ".env.example and set MONGODB_URI to your MongoDB Atlas connection string."
+            )
         timeout_ms = int(os.getenv("MONGODB_CONNECT_TIMEOUT_MS", "5000"))
         _client = MongoClient(
             uri,
