@@ -1,6 +1,6 @@
-"""Agent 1: Vital Monitoring Agent (ZETIC Edge Agent)
+"""Agent 1: Vital Monitoring Agent
 
-Runs the ZETIC on-device anomaly detector every second over configured vitals.
+Runs the heuristic anomaly detector every second over configured vitals.
 When an anomaly is detected, publishes an AnomalyMessage to the Coordinator Agent
 via Fetch.ai Chat Protocol.
 
@@ -22,7 +22,7 @@ from agents.addresses import COORDINATOR_AGENT_ADDRESS
 from agents.message_types import AnomalyMessage, VitalsMessage
 from models.schemas import VitalsPayload
 from vitals.generator import generate_vitals
-from zetic.melange_agent import process_vitals
+from vitals.anomaly import process_vitals
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
     ChatMessage,
@@ -38,8 +38,8 @@ AGENT_MONITOR_SEED_PHRASE = os.getenv("AGENT_MONITOR_SEED_PHRASE", "your-agent-s
 monitor_agent = Agent(
     name="CareFlow-VitalMonitor",
     seed=AGENT_MONITOR_SEED_PHRASE,
-    mailbox=True,
-    port=8001, 
+    mailbox=AGENTVERSE_KEY,
+    port=8001,
     publish_agent_details=True,
 )
 
