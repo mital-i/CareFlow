@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+*.env
+!.env.example
+
+# Google Cloud credentials
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!vite.config.js
+
+# Node
+node_modules/
+careflow-ui/dist/
+
+# OS
+.DS_Store
+*.swp
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
