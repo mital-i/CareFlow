@@ -113,7 +113,7 @@ def calculate_demo_deviation_score(
     hrv: int,
     previous_hr: list[float],
 ) -> float:
-    """Mirror the deterministic fallback score used by zetic.melange_agent."""
+    """Mirror the deterministic score used by vitals.anomaly."""
     score = 0.0
     if heart_rate > 120:
         score += 0.45

@@ -134,7 +134,7 @@ export default function VitalsChart({ vitals, hasAnomaly }) {
       )}
 
       <p className="text-xs text-gray-600 mt-2 text-right">
-        ZETIC Melange · on-device inference · raw vitals never leave device
+        Heuristic anomaly detection · MedGemma risk classification
       </p>
     </div>
   )

@@ -3,14 +3,13 @@ import { useEffect, useState } from 'react'
 const API_BASE = 'http://localhost:8000'
 
 const AGENTS = [
-  { key: 'monitor_agent',     label: 'VitalMonitor',  icon: '🫀', desc: 'ZETIC on-device' },
-  { key: 'coordinator_agent', label: "Doctor's Asst", icon: '🧠', desc: 'Gemini + Fetch.ai' },
+  { key: 'monitor_agent',     label: 'VitalMonitor',  icon: '🫀', desc: 'Anomaly detection' },
+  { key: 'coordinator_agent', label: "Doctor's Asst", icon: '🧠', desc: 'MedGemma + Fetch.ai' },
 ]
 
 const TECH_BADGES = [
   { label: 'Fetch.ai Agentverse', color: 'border-blue-800 text-blue-400' },
-  { label: 'ZETIC Melange',       color: 'border-purple-800 text-purple-400' },
-  { label: 'Vertex AI Gemini',    color: 'border-emerald-800 text-emerald-400' },
+  { label: 'MedGemma (Ollama)',   color: 'border-emerald-800 text-emerald-400' },
 ]
 
 export default function AgentStatusBar() {
