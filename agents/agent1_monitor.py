@@ -1,6 +1,6 @@
 """Agent 1: Vital Monitoring Agent (ZETIC Edge Agent)
 
-Runs the ZETIC on-device anomaly detector every second over synthetic vitals.
+Runs the ZETIC on-device anomaly detector every second over configured vitals.
 When an anomaly is detected, publishes an AnomalyMessage to the Coordinator Agent
 via Fetch.ai Chat Protocol.
 
