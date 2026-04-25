@@ -18,7 +18,7 @@ echo "  CareFlow  ·  LA Hacks 2026"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Seed DB (idempotent — safe to re-run)
-echo "▶ Seeding demo patients…"
+echo "▶ Seeding demo patient…"
 python scripts/seed.py
 
 echo "▶ Starting FastAPI gateway on :8000…"
