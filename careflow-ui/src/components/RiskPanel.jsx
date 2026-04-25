@@ -2,27 +2,28 @@ const SEVERITY_STYLES = {
   LOW:      { bar: 'bg-green-500',  text: 'text-green-400',  border: 'border-green-800',  badge: 'bg-green-900 text-green-300' },
   MEDIUM:   { bar: 'bg-yellow-400', text: 'text-yellow-400', border: 'border-yellow-700', badge: 'bg-yellow-900 text-yellow-300' },
   HIGH:     { bar: 'bg-orange-500', text: 'text-orange-400', border: 'border-orange-700', badge: 'bg-orange-900 text-orange-300' },
-  CRITICAL: { bar: 'bg-red-600',    text: 'text-red-400',    border: 'border-red-700',    badge: 'bg-red-900 text-red-300' },
+  CRITICAL: { bar: 'bg-red-600',    text: 'text-red-400',    border: 'border-red-600',    badge: 'bg-red-900 text-red-300' },
 }
 
 const ACTION_LABEL = {
-  LOG_ONLY:       'Logged',
-  PATIENT_ALERT:  'Patient Alerted',
-  PROVIDER_NOTIFY:'Provider Notified',
-  ER_DISPATCH:    '🚨 ER Dispatch',
+  LOG_ONLY:        'Logged',
+  PATIENT_ALERT:   'Patient Alerted',
+  PROVIDER_NOTIFY: 'Provider Notified',
+  ER_DISPATCH:     '🚨 ER Dispatch',
 }
 
 export default function RiskPanel({ assessment }) {
   if (!assessment) return null
   const s = SEVERITY_STYLES[assessment.severity_level] || SEVERITY_STYLES.LOW
   const pct = Math.round(assessment.risk_score * 100)
+  const isCritical = assessment.severity_level === 'CRITICAL'
 
   return (
-    <div className={`bg-gray-900 rounded-xl border ${s.border} p-4`}>
+    <div className={`fade-in-up bg-gray-900 rounded-xl border ${s.border} p-4 ${isCritical ? 'glow-red' : ''}`}>
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-semibold text-sm text-gray-300">Gemini Risk Assessment</h2>
         <div className="flex items-center gap-2">
-          <span className={`text-xs px-2 py-0.5 rounded font-bold ${s.badge}`}>
+          <span className={`text-xs px-2 py-0.5 rounded font-bold ${s.badge} ${isCritical ? 'animate-pulse' : ''}`}>
             {assessment.severity_level}
           </span>
           <span className={`font-mono text-2xl font-bold ${s.text}`}>{pct}%</span>
