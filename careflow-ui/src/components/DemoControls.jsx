@@ -70,7 +70,7 @@ export default function DemoControls({ onClose }) {
         </button>
 
         <p className="text-xs text-gray-600 mt-3 text-center">
-          POST /trigger-anomaly → ZETIC detects → Gemini assesses → Dashboard alerts
+          POST /trigger-anomaly → anomaly detected → MedGemma assesses → Dashboard alerts
         </p>
       </div>
     </div>

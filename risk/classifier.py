@@ -8,7 +8,8 @@ import json
 import os
 from typing import Optional
 
-from models.schemas import AnomalyEvent, RiskAssessment, SeverityLevel
+from models.schemas import AnomalyEvent, RiskAssessment, SeverityLevel, SafetyStatus, SafetyReport
+from risk.safety import evaluate_safety
 
 _PROMPT_TEMPLATE = """You are a clinical AI assistant. Analyze the following patient vital signs anomaly and provide a structured risk assessment.
 
@@ -96,7 +97,7 @@ def classify_risk(event: AnomalyEvent) -> RiskAssessment:
 
     result = _call_gemma(prompt) or _rule_based_fallback(event)
 
-    return RiskAssessment(
+    assessment = RiskAssessment(
         patient_id=event.patient_id,
         risk_score=float(result["risk_score"]),
         severity_level=SeverityLevel(result["severity_level"]),
@@ -104,3 +105,9 @@ def classify_risk(event: AnomalyEvent) -> RiskAssessment:
         doctor_note=result["doctor_note"],
         anomaly_ref=event.anomaly_id,
     )
+
+    # Perform AI Safety Verification
+    print(f"[RiskClassifier] Initiating AI safety verification for {event.anomaly_id}...")
+    assessment.safety_report = evaluate_safety(event, assessment)
+
+    return assessment

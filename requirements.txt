@@ -15,8 +15,5 @@ uagents==0.24.2
 
 # Gemma via Ollama (httpx already listed above — no extra deps needed)
 
-# ZETIC Melange (install separately if SDK available)
-# zetic_mlange  -- pip install from ZETIC docs / starter pack
-
 # Utilities
 numpy==1.26.4

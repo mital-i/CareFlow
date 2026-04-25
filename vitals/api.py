@@ -10,11 +10,11 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from db.db import save_vitals
+from vitals.anomaly import AnomalyDetector
 from vitals.sources import get_vitals_source
-from zetic.melange_agent import ZeticAnomalyDetector
 
 router = APIRouter()
-detector = ZeticAnomalyDetector()
+detector = AnomalyDetector()
 
 
 class TriggerRequest(BaseModel):

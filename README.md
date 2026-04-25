@@ -117,4 +117,4 @@ Replay rows still emit the same `VitalsPayload` shape used by the React dashboar
 
 ### Pitch
 
-“CareFlow processes raw wearable vitals locally on-device using the ZETIC edge layer. The raw stream never needs to leave the device for initial detection. Once the local model detects a clinically relevant deviation, it sends only a compact anomaly event to the cloud AI pipeline for risk assessment and doctor-facing summarization.”
+“CareFlow streams wearable vitals through a heuristic anomaly detector. Once a clinically relevant deviation is detected, a compact anomaly event is forwarded to the agent pipeline where MedGemma classifies risk and surfaces a doctor-facing assessment to the dashboard in real time.”
