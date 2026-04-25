@@ -1,18 +1,18 @@
 const nodes = [
   { id: 'device',      label: 'Wearable / Device',     sub: 'Synthetic Vitals 1 Hz',    color: '#3b82f6', x: 60,  y: 120 },
-  { id: 'zetic',       label: 'ZETIC Melange',          sub: 'On-device anomaly detect',  color: '#8b5cf6', x: 260, y: 120 },
+  { id: 'detector',    label: 'Anomaly Detector',       sub: 'Heuristic scoring',         color: '#8b5cf6', x: 260, y: 120 },
   { id: 'monitor',     label: 'Monitor Agent',          sub: 'Fetch.ai uAgent',           color: '#06b6d4', x: 460, y: 120 },
   { id: 'coordinator', label: "Coordinator Agent",      sub: "Doctor's Assistant",        color: '#f59e0b', x: 460, y: 280 },
-  { id: 'gemini',      label: 'Vertex AI Gemini',       sub: 'Risk classification',       color: '#22c55e', x: 260, y: 280 },
+  { id: 'medgemma',    label: 'MedGemma (Ollama)',      sub: 'Risk classification',       color: '#22c55e', x: 260, y: 280 },
   { id: 'dashboard',   label: 'React Dashboard',        sub: 'Provider UI + Alerts',      color: '#ef4444', x: 60,  y: 280 },
 ]
 
 const edges = [
-  { from: 'device',      to: 'zetic',       label: 'raw vitals' },
-  { from: 'zetic',       to: 'monitor',     label: 'AnomalyEvent' },
+  { from: 'device',      to: 'detector',    label: 'raw vitals' },
+  { from: 'detector',    to: 'monitor',     label: 'AnomalyEvent' },
   { from: 'monitor',     to: 'coordinator', label: 'Chat Protocol' },
-  { from: 'coordinator', to: 'gemini',      label: 'classify_risk()' },
-  { from: 'gemini',      to: 'coordinator', label: 'RiskAssessment' },
+  { from: 'coordinator', to: 'medgemma',    label: 'classify_risk()' },
+  { from: 'medgemma',    to: 'coordinator', label: 'RiskAssessment' },
   { from: 'coordinator', to: 'dashboard',   label: 'WebSocket' },
 ]
 
@@ -78,7 +78,7 @@ export default function SystemFlowDiagram({ onClose }) {
         </svg>
 
         <p className="text-xs text-gray-600 text-center mt-2">
-          Raw vitals never leave the device — only AnomalyEvent is published upstream
+          Vitals streamed at 1 Hz · anomalies trigger MedGemma risk classification
         </p>
       </div>
     </div>

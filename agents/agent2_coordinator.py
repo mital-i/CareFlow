@@ -33,13 +33,14 @@ from models.schemas import (
 from risk.classifier import classify_risk
 
 AGENT_COORDINATOR_SEED_PHRASE = os.getenv("AGENT_COORDINATOR_SEED_PHRASE", "your-agent-seed-phrase-here")
+AGENTVERSE_KEY = os.getenv("AGENTVERSE_KEY", "")
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 coordinator_agent = Agent(
     name="CareFlow-Coordinator",
     seed=AGENT_COORDINATOR_SEED_PHRASE,
-    mailbox=True,
-    port=8002, 
+    mailbox=AGENTVERSE_KEY,
+    port=8002,
     publish_agent_details=True,
 )
 

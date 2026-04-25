@@ -27,4 +27,4 @@ class AnomalyEvent(BaseModel):
     deviation_score: float
     vitals_snapshot: VitalsPayload
     detected_at: datetime = Field(default_factory=utc_now)
-    source: str = "zetic_on_device"
+    source: str = "heuristic"
