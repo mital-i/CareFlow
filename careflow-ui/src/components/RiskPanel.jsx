@@ -1,0 +1,53 @@
+const SEVERITY_STYLES = {
+  LOW:      { bar: 'bg-green-500',  text: 'text-green-400',  border: 'border-green-800',  badge: 'bg-green-900 text-green-300' },
+  MEDIUM:   { bar: 'bg-yellow-400', text: 'text-yellow-400', border: 'border-yellow-700', badge: 'bg-yellow-900 text-yellow-300' },
+  HIGH:     { bar: 'bg-orange-500', text: 'text-orange-400', border: 'border-orange-700', badge: 'bg-orange-900 text-orange-300' },
+  CRITICAL: { bar: 'bg-red-600',    text: 'text-red-400',    border: 'border-red-700',    badge: 'bg-red-900 text-red-300' },
+}
+
+const ACTION_LABEL = {
+  LOG_ONLY:       'Logged',
+  PATIENT_ALERT:  'Patient Alerted',
+  PROVIDER_NOTIFY:'Provider Notified',
+  ER_DISPATCH:    '🚨 ER Dispatch',
+}
+
+export default function RiskPanel({ assessment }) {
+  if (!assessment) return null
+  const s = SEVERITY_STYLES[assessment.severity_level] || SEVERITY_STYLES.LOW
+  const pct = Math.round(assessment.risk_score * 100)
+
+  return (
+    <div className={`bg-gray-900 rounded-xl border ${s.border} p-4`}>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-semibold text-sm text-gray-300">Gemini Risk Assessment</h2>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-2 py-0.5 rounded font-bold ${s.badge}`}>
+            {assessment.severity_level}
+          </span>
+          <span className={`font-mono text-2xl font-bold ${s.text}`}>{pct}%</span>
+        </div>
+      </div>
+
+      {/* Risk score bar */}
+      <div className="h-2 bg-gray-800 rounded-full mb-3 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-700 ${s.bar}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+
+      <p className="text-sm text-gray-300 mb-2 leading-relaxed">{assessment.reasoning_context}</p>
+
+      <div className="border-t border-gray-800 pt-2 mt-2 flex items-start justify-between gap-3">
+        <p className="text-xs text-gray-400 flex-1">
+          <span className="font-semibold text-gray-300">Doctor note: </span>
+          {assessment.doctor_note}
+        </p>
+        <span className={`text-xs shrink-0 font-semibold ${s.text}`}>
+          {ACTION_LABEL[assessment.action_tier] ?? assessment.action_tier}
+        </span>
+      </div>
+    </div>
+  )
+}

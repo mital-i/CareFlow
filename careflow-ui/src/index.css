@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-950 text-gray-100 font-sans antialiased;
+  }
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-600 rounded;
+  }
+}
+
+@layer utilities {
+  .flash-critical {
+    animation: flashRed 0.5s ease-in-out 3;
+  }
+}
+
+@keyframes flashRed {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(239, 68, 68, 0.2); }
+}
