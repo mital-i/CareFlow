@@ -76,6 +76,7 @@ async def tick(ctx: Context):
             detected_at=anomaly.detected_at.isoformat(),
         )
         await ctx.send(COORDINATOR_AGENT_ADDRESS, msg)
+        
 
 
 if __name__ == "__main__":

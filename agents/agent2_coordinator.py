@@ -12,7 +12,6 @@ import json
 import os
 import sys
 
-from agents.agent1_monitor import AGENT_SEED
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
