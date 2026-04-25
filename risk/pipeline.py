@@ -4,7 +4,11 @@ Entry point: invoke_pipeline(anomaly_event) -> RiskAssessmentDoc | None
 """
 from typing import Any, Dict, Optional, TypedDict
 
-from langgraph.graph import END, StateGraph
+try:
+    from langgraph.graph import END, StateGraph
+except ImportError:
+    END = None
+    StateGraph = None
 
 from models.anomaly import AnomalyEvent
 from models.patient import PatientHistory
@@ -34,6 +38,8 @@ def _should_emergency_flag(state: RiskPipelineState) -> str:
 
 
 def _build_graph() -> StateGraph:
+    if StateGraph is None:
+        raise RuntimeError("langgraph is not installed")
     graph = StateGraph(RiskPipelineState)
 
     graph.add_node("fetch_history", fetch_patient_history)
@@ -74,6 +80,17 @@ async def invoke_pipeline(anomaly: AnomalyEvent) -> Optional[RiskAssessmentDoc]:
         "emergency": False,
         "error": None,
     }
+    if StateGraph is None:
+        state = fetch_patient_history(initial_state)
+        state = run_classify_risk(state)
+        if _should_emergency_flag(state) == "emergency":
+            state = emergency_flag(state)
+        state = save_assessment_node(state)
+        state = publish_result(state)
+        if state.get("error"):
+            print(f"[PIPELINE ERROR] {state['error']}")
+        return state.get("risk_assessment")
+
     graph = _get_graph()
     result = graph.invoke(initial_state)
 

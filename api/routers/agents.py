@@ -28,5 +28,13 @@ async def get_agent_status():
 
 @router.post("/trigger-anomaly")
 async def trigger_anomaly_endpoint(patient_id: str = "P001"):
-    trigger_anomaly(patient_id)
-    return {"status": "triggered", "patient_id": patient_id}
+    trigger = trigger_anomaly(patient_id)
+    triggered_until = trigger["triggered_until"]
+    if hasattr(triggered_until, "isoformat"):
+        triggered_until = triggered_until.isoformat()
+    return {
+        "status": "triggered",
+        "patient_id": patient_id,
+        "duration_seconds": trigger["duration_seconds"],
+        "triggered_until": triggered_until,
+    }

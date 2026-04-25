@@ -14,6 +14,7 @@ load_dotenv()
 from api.routers import agents as agents_router
 from api.routers import patients as patients_router
 from api.ws_manager import manager
+from db.db import setup_database
 from vitals.api import router as vitals_router
 
 
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI):
     missing = [k for k in required if not os.getenv(k)]
     if missing:
         raise RuntimeError(f"Missing required env vars: {missing}")
+    setup_database()
     print("[CareFlow API] Startup checks passed")
     yield
     print("[CareFlow API] Shutting down")
