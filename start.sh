@@ -17,6 +17,15 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  CareFlow  ·  LA Hacks 2026"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+# Check Ollama is reachable
+OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
+if ! curl -sf "$OLLAMA_HOST" > /dev/null 2>&1; then
+  echo "⚠️   Ollama not detected at $OLLAMA_HOST"
+  echo "    Run in a separate terminal:  ollama serve"
+  echo "    (risk classifier will use rule-based fallback until Ollama is up)"
+  echo ""
+fi
+
 # Seed DB (idempotent — safe to re-run)
 echo "▶ Seeding demo patient…"
 python scripts/seed.py

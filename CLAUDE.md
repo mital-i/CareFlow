@@ -62,9 +62,7 @@ The demo trigger (`POST /trigger-anomaly`) updates per-patient in-memory state i
 
 **Coordinator-to-dashboard bridge.** The Coordinator agent is a separate process from FastAPI, so it cannot call `manager.broadcast()` directly. It POSTs to `POST /internal/broadcast` (FastAPI), which calls the WebSocket manager. This is the glue between the agent world and the UI world.
 
-**Fallbacks everywhere.** `zetic/melange_agent.py` falls back to a deterministic threshold scorer if the ZETIC SDK isn't installed or `ZETIC_MODE=mock`. `risk/classifier.py` falls back to rule-based thresholds if Vertex AI fails. Both paths produce identical output types.
-
-**Shared Pydantic models vs Fetch.ai models.** `models/vitals.py` holds the canonical `VitalsPayload` and `AnomalyEvent` models. `models/schemas.py` re-exports those vitals models and keeps risk/action models used by downstream code. `agents/message_types.py` holds separate `uagents.Model` subclasses required by the Fetch.ai Chat Protocol — the Coordinator manually converts between them.
+**Fallbacks everywhere.** `zetic/melange_agent.py` falls back to a z-score heuristic if the ZETIC SDK isn't installed. `risk/classifier.py` falls back to rule-based thresholds if the Gemini API fails. Both paths produce identical output types.
 
 **Mongo collections stay simple.** Person 1's data layer uses only `patients`, `vitals_history`, and `anomaly_events`. The seeded demo patient is `patient-001` / Margaret Chen.
 
@@ -72,10 +70,7 @@ The demo trigger (`POST /trigger-anomaly`) updates per-patient in-memory state i
 
 Copy `.env.example` → `.env` and fill in:
 - `MONGODB_URI` — Atlas M0 connection string
-- `DEFAULT_PATIENT_ID=patient-001`
-- `DEVICE_ID=careflow_watch_001`
-- `ZETIC_MODE=mock` for the demo-compatible detector fallback
-- `GCP_PROJECT_ID` + `GOOGLE_APPLICATION_CREDENTIALS` — for Gemini
+- `OLLAMA_HOST` / `GEMMA_MODEL` — Ollama must be running locally (`ollama serve`); default model is `gemma2:2b`
 - `AGENT_MONITOR_SEED` / `AGENT_COORDINATOR_SEED` — deterministic agent identity; print the generated address on first run and set `AGENT_MONITOR_ADDRESS` / `AGENT_COORDINATOR_ADDRESS`
 - `ZETIC_MODEL_KEY` / `ZETIC_PERSONAL_KEY` — only needed if using real ZETIC SDK (heuristic fallback works without these)
 
