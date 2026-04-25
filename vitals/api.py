@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from db.db import save_vitals
-from vitals.generator import generate_next_vitals, trigger_anomaly
+from vitals.sources import get_vitals_source
 from zetic.melange_agent import ZeticAnomalyDetector
 
 router = APIRouter()
@@ -38,12 +38,12 @@ async def data_edge_health():
 
 @router.post("/trigger-anomaly")
 async def trigger_anomaly_endpoint(req: TriggerRequest):
-    return trigger_anomaly(req.patient_id, req.duration_seconds)
+    return get_vitals_source().trigger_anomaly(req.patient_id, req.duration_seconds)
 
 
 @router.get("/vitals/current/{patient_id}")
 async def current_vitals(patient_id: str):
-    return generate_next_vitals(patient_id)
+    return get_vitals_source().next_vitals(patient_id)
 
 
 @router.get("/vitals/latest/{patient_id}")
@@ -53,7 +53,7 @@ async def latest_vitals(patient_id: str):
 
 async def _vitals_event_generator(patient_id: str) -> AsyncGenerator[dict, None]:
     while True:
-        payload = generate_next_vitals(patient_id)
+        payload = get_vitals_source().next_vitals(patient_id)
         anomaly = detector.add_vitals(payload)
 
         try:
