@@ -1,7 +1,7 @@
-"""Gemini risk classifier — converts an AnomalyEvent into a RiskAssessment.
+"""Gemma risk classifier — converts an AnomalyEvent into a RiskAssessment.
 
-Uses Vertex AI (Gemini) with a single structured prompt. Falls back to a
-rule-based assessment when Vertex AI is unavailable (dev/offline mode).
+Uses a locally-running Gemma model via Ollama with a single structured prompt.
+Falls back to rule-based assessment when Ollama is unavailable (dev/offline mode).
 """
 from __future__ import annotations
 import json
@@ -19,13 +19,8 @@ Patient vitals anomaly:
 - Deviation Score: {deviation_score} (threshold: 0.65)
 - Signal Type: {signal_type}
 
-Respond ONLY with a valid JSON object in this exact format:
-{{
-  "risk_score": <float 0.0-1.0>,
-  "severity_level": "<LOW|MEDIUM|HIGH|CRITICAL>",
-  "reasoning_context": "<2-3 sentence clinical explanation of what the vitals suggest>",
-  "doctor_note": "<1 sentence recommended immediate action for the care provider>"
-}}
+Respond ONLY with a valid JSON object. No explanation, no markdown, no code fences. Just the raw JSON:
+{{"risk_score": <float 0.0-1.0>, "severity_level": "<LOW|MEDIUM|HIGH|CRITICAL>", "reasoning_context": "<2-3 sentence clinical explanation>", "doctor_note": "<1 sentence recommended action>"}}
 
 Rules:
 - risk_score < 0.4 → LOW, 0.4-0.6 → MEDIUM, 0.6-0.8 → HIGH, > 0.8 → CRITICAL
@@ -64,28 +59,28 @@ def _rule_based_fallback(event: AnomalyEvent) -> dict:
     }
 
 
-def _call_gemini(prompt: str) -> Optional[dict]:
+def _call_gemma(prompt: str) -> Optional[dict]:
     try:
-        import vertexai  # type: ignore
-        from vertexai.generative_models import GenerativeModel  # type: ignore
+        import httpx
 
-        project = os.environ["GCP_PROJECT_ID"]
-        region = os.getenv("GCP_REGION", "us-central1")
-        model_name = os.getenv("VERTEX_AI_MODEL", "gemini-pro")
+        ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        model_name = os.getenv("GEMMA_MODEL", "gemma2:2b")
 
-        vertexai.init(project=project, location=region)
-        model = GenerativeModel(model_name)
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+        response = httpx.post(
+            f"{ollama_host}/api/generate",
+            json={"model": model_name, "prompt": prompt, "stream": False},
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        text = response.json()["response"].strip()
 
-        # Strip markdown code fences if present
         if text.startswith("```"):
             text = text.split("```")[1]
             if text.startswith("json"):
                 text = text[4:]
         return json.loads(text)
     except Exception as exc:
-        print(f"[Gemini] API call failed ({exc}) — using rule-based fallback")
+        print(f"[Gemma] Ollama call failed ({exc}) — using rule-based fallback")
         return None
 
 
@@ -99,7 +94,7 @@ def classify_risk(event: AnomalyEvent) -> RiskAssessment:
         signal_type=event.signal_type,
     )
 
-    result = _call_gemini(prompt) or _rule_based_fallback(event)
+    result = _call_gemma(prompt) or _rule_based_fallback(event)
 
     return RiskAssessment(
         patient_id=event.patient_id,
