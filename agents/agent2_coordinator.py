@@ -26,7 +26,11 @@ import httpx
 from dotenv import load_dotenv
 load_dotenv()
 
-from agents.message_types import AnomalyMessage, RiskMessage, ActionMessage
+from agents.message_types import AnomalyMessage, RiskMessage, ActionMessage, NotifyMessage
+from agents.addresses import NOTIFIER_AGENT_ADDRESS
+from db.db import DEMO_PATIENTS
+
+_PATIENT_NAMES = {p["patient_id"]: p["name"] for p in DEMO_PATIENTS}
 from models.schemas import (
     AnomalyEvent, VitalsPayload, ActionTier, SeverityLevel
 )
@@ -50,7 +54,7 @@ def _severity_to_tier(severity: SeverityLevel) -> ActionTier:
     mapping = {
         SeverityLevel.LOW: ActionTier.LOG_ONLY,
         SeverityLevel.MEDIUM: ActionTier.PATIENT_ALERT,
-        SeverityLevel.HIGH: ActionTier.PROVIDER_NOTIFY,
+        SeverityLevel.HIGH: ActionTier.ER_DISPATCH,
         SeverityLevel.CRITICAL: ActionTier.ER_DISPATCH,
     }
     return mapping[severity]
@@ -113,6 +117,27 @@ async def handle_anomaly(ctx: Context, sender: str, msg: AnomalyMessage):
         f"[Coordinator] Assessment: score={assessment.risk_score:.2f} "
         f"severity={assessment.severity_level.value} action={tier.value}"
     )
+
+    if tier == ActionTier.ER_DISPATCH:
+        patient_name = _PATIENT_NAMES.get(assessment.patient_id, assessment.patient_id)
+        ctx.logger.info(f"[Coordinator] CRITICAL — notifying Agent 3 for {patient_name}")
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    "http://localhost:8003/notify",
+                    json={
+                        "patient_id": assessment.patient_id,
+                        "patient_name": patient_name,
+                        "risk_score": assessment.risk_score,
+                        "doctor_note": assessment.doctor_note,
+                        "severity_level": assessment.severity_level.value,
+                        "action_tier": tier.value,
+                    },
+                    timeout=5.0,
+                )
+            ctx.logger.info("[Coordinator] Agent 3 notified successfully")
+        except Exception as exc:
+            ctx.logger.error(f"[Coordinator] Failed to notify Agent 3: {exc}")
 
     await _broadcast_to_dashboard("risk_assessment", {
         "assessment_id": str(assessment.assessment_id),
