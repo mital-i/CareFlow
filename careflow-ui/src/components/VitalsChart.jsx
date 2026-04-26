@@ -41,13 +41,13 @@ function StatCard({ label, value, unit, warn, danger }) {
   )
 }
 
-export default function VitalsChart({ vitals, hasAnomaly }) {
+export default function VitalsChart({ vitals, hasAnomaly, patientName }) {
   const latest = vitals[vitals.length - 1]
 
   return (
     <div className={`bg-gray-900 rounded-xl border p-4 transition-colors duration-300 ${hasAnomaly ? 'border-red-500' : 'border-gray-800'}`}>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-sm text-gray-300">Live Vitals — Margaret Chen (patient-001)</h2>
+        <h2 className="font-semibold text-sm text-gray-300">Live Vitals — {patientName ?? 'patient-001'}</h2>
         <div className="flex items-center gap-3">
           {hasAnomaly && (
             <span className="text-red-400 text-xs font-bold animate-pulse uppercase tracking-widest">
