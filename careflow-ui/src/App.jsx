@@ -10,6 +10,8 @@ import SystemFlowDiagram from './components/SystemFlowDiagram'
 
 const WS_URL = 'ws://localhost:8000/ws'
 const API_BASE = 'http://localhost:8000'
+const TTS_RETRY_COOLDOWN_MS = 60_000
+const TTS_ALERT_COOLDOWN_MS = 7_000
 
 const SEVERITY_TOAST = {
   LOW: null,
@@ -35,6 +37,11 @@ export default function App() {
   const reconnectTimerRef = useRef(null)
   const shouldReconnectRef = useRef(false)
   const esRef = useRef(null)
+  const ttsRetryAfterRef = useRef(0)
+  const ttsNextAlertAtRef = useRef(0)
+  const ttsPlayingRef = useRef(false)
+  const lastSpokenAssessmentRef = useRef(null)
+  const audioNoticeShownRef = useRef(false)
 
   // Fetch patient list on mount
   useEffect(() => {
@@ -55,6 +62,61 @@ export default function App() {
   useEffect(() => {
     fetchAnomalyHistory()
   }, [fetchAnomalyHistory])
+
+  const speakAlert = useCallback(async (assessment) => {
+    const now = Date.now()
+    if (now < ttsRetryAfterRef.current || now < ttsNextAlertAtRef.current || ttsPlayingRef.current) {
+      return
+    }
+    if (assessment.assessment_id && lastSpokenAssessmentRef.current === assessment.assessment_id) {
+      return
+    }
+
+    const name = patients.find((p) => p.patient_id === assessment.patient_id)?.name ?? assessment.patient_id
+    const text = `${assessment.severity_level} alert. Patient ${name}. Risk score ${Math.round(assessment.risk_score * 100)} percent. ${assessment.doctor_note}`
+    ttsPlayingRef.current = true
+    ttsNextAlertAtRef.current = now + TTS_ALERT_COOLDOWN_MS
+    try {
+      const resp = await fetch(`${API_BASE}/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+      if (!resp.ok) {
+        if ([402, 503].includes(resp.status)) {
+          ttsRetryAfterRef.current = Date.now() + TTS_RETRY_COOLDOWN_MS
+        }
+        ttsPlayingRef.current = false
+        return
+      }
+      const blob = await resp.blob()
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      audio.onended = () => {
+        URL.revokeObjectURL(url)
+        ttsPlayingRef.current = false
+        ttsNextAlertAtRef.current = Date.now() + TTS_ALERT_COOLDOWN_MS
+      }
+      audio.onerror = () => {
+        URL.revokeObjectURL(url)
+        ttsPlayingRef.current = false
+      }
+      try {
+        await audio.play()
+        lastSpokenAssessmentRef.current = assessment.assessment_id ?? null
+      } catch {
+        URL.revokeObjectURL(url)
+        ttsPlayingRef.current = false
+        if (!audioNoticeShownRef.current) {
+          audioNoticeShownRef.current = true
+          toast('Browser blocked voice playback. Click anywhere on the dashboard, then trigger another alert.')
+        }
+      }
+    } catch {
+      ttsRetryAfterRef.current = Date.now() + TTS_RETRY_COOLDOWN_MS
+      ttsPlayingRef.current = false
+    }
+  }, [patients])
 
   // WebSocket for risk assessments and acknowledgments
   const connectWs = useCallback(() => {
@@ -100,6 +162,7 @@ export default function App() {
           setCriticalBanner(data)
           clearTimeout(bannerTimerRef.current)
           bannerTimerRef.current = setTimeout(() => setCriticalBanner(null), 8000)
+          speakAlert(data)
         }
         const showToast = SEVERITY_TOAST[severity]
         if (showToast) showToast(data.doctor_note)
@@ -126,7 +189,7 @@ export default function App() {
         })
       }
     }
-  }, [fetchAnomalyHistory])
+  }, [fetchAnomalyHistory, speakAlert])
 
   useEffect(() => {
     connectWs()
