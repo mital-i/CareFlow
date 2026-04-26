@@ -68,10 +68,6 @@ export default function DemoControls({ onClose, selectedPatient = 'patient-001',
         >
           {loading ? 'Injecting…' : countdown !== null ? '🚨 Anomaly Running…' : `🚨 Trigger Anomaly — ${patientName}`}
         </button>
-
-        <p className="text-xs text-gray-600 mt-3 text-center">
-          POST /trigger-anomaly → anomaly detected → MedGemma assesses → Dashboard alerts
-        </p>
       </div>
     </div>
   )
