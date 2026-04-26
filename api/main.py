@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from api.ws_manager import manager
-from db.db import get_db, seed_demo_patient_if_missing
+from db.db import get_db, seed_demo_patient_if_missing, DEMO_PATIENTS
 from vitals.api import router as vitals_router
 
 app = FastAPI(title="CareFlow API", version="1.0.0")
@@ -38,35 +38,6 @@ app.add_middleware(
 
 app.include_router(vitals_router)
 
-DEMO_PATIENTS = [
-    {
-        "patient_id": "patient-001",
-        "name": "Margaret Chen",
-        "age": 67,
-        "conditions": ["Atrial Fibrillation", "Hypertension"],
-        "baseline_hr": 72,
-        "baseline_spo2": 98.5,
-        "baseline_hrv": 58,
-    },
-    {
-        "patient_id": "patient-002",
-        "name": "Robert Okafor",
-        "age": 54,
-        "conditions": ["Type 2 Diabetes", "Coronary Artery Disease"],
-        "baseline_hr": 68,
-        "baseline_spo2": 97.8,
-        "baseline_hrv": 62,
-    },
-    {
-        "patient_id": "patient-003",
-        "name": "Sofia Ramirez",
-        "age": 71,
-        "conditions": ["COPD", "Post-op Cardiac Recovery"],
-        "baseline_hr": 78,
-        "baseline_spo2": 96.5,
-        "baseline_hrv": 44,
-    },
-]
 
 
 @app.on_event("startup")
@@ -106,6 +77,27 @@ async def internal_broadcast(req: BroadcastRequest):
     """Called by Coordinator agent to push events to WebSocket clients."""
     await manager.broadcast(req.event_type, req.data)
     return {"broadcasted": True, "connections": len(manager.active)}
+
+
+@app.post("/acknowledge/{assessment_id}")
+async def acknowledge_assessment(assessment_id: str):
+    await manager.broadcast("acknowledged", {"assessment_id": assessment_id})
+    return {"ok": True}
+
+
+@app.get("/anomalies/{patient_id}")
+async def get_anomaly_history(patient_id: str, limit: int = 20):
+    try:
+        db = get_db()
+        docs = list(
+            db.anomaly_events.find(
+                {"patient_id": patient_id},
+                {"_id": 0},
+            ).sort("detected_at", -1).limit(limit)
+        )
+        return docs
+    except Exception as exc:
+        return []
 
 
 @app.websocket("/ws")
