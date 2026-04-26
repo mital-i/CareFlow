@@ -21,9 +21,14 @@ function LogEntry({ entry, isNew }) {
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-gray-500 text-xs font-mono">{time}</span>
-        <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${badge}`}>
-          {entry.severity_level}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {entry.acknowledged && (
+            <span className="text-xs text-green-400 font-semibold">✓</span>
+          )}
+          <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${badge}`}>
+            {entry.severity_level}
+          </span>
+        </div>
       </div>
       <p className="text-xs text-gray-400 mt-1 truncate">
         {entry.action_tier?.replace(/_/g, ' ')} · score {Math.round(entry.risk_score * 100)}%

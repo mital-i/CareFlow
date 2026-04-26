@@ -18,7 +18,7 @@ const SAFETY_STYLES = {
   UNCERTAIN: { text: 'text-gray-400',   badge: 'bg-gray-800 text-gray-400 border-gray-700',   icon: '❓', label: 'Unverified' },
 }
 
-export default function RiskPanel({ assessment }) {
+export default function RiskPanel({ assessment, onAcknowledge }) {
   if (!assessment) return null
   const s = SEVERITY_STYLES[assessment.severity_level] || SEVERITY_STYLES.LOW
   const safety = SAFETY_STYLES[assessment.safety_report?.status] || SAFETY_STYLES.UNCERTAIN
@@ -64,6 +64,21 @@ export default function RiskPanel({ assessment }) {
         <span className={`text-xs shrink-0 font-semibold ${s.text}`}>
           {ACTION_LABEL[assessment.action_tier] ?? assessment.action_tier}
         </span>
+      </div>
+
+      <div className="mt-3 pt-2 border-t border-gray-800">
+        {assessment.acknowledged ? (
+          <span className="text-xs text-green-400 font-semibold flex items-center gap-1">
+            ✓ Acknowledged by provider
+          </span>
+        ) : (
+          <button
+            onClick={() => onAcknowledge?.(assessment.assessment_id)}
+            className="text-xs px-3 py-1.5 rounded-lg bg-green-900 hover:bg-green-800 border border-green-700 text-green-300 font-semibold transition-colors"
+          >
+            Acknowledge Alert
+          </button>
+        )}
       </div>
     </div>
   )
