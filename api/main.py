@@ -17,8 +17,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import httpx
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from api.ws_manager import manager
@@ -28,6 +30,9 @@ from vitals.api import router as vitals_router
 app = FastAPI(title="CareFlow API", version="1.0.0")
 
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "JBFqnCBsd6RMkjVDRZzb")
+ELEVENLABS_MODEL_ID = os.getenv("ELEVENLABS_MODEL_ID", "eleven_flash_v2_5")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -98,6 +103,50 @@ async def get_anomaly_history(patient_id: str, limit: int = 20):
         return docs
     except Exception as exc:
         return []
+
+
+class TTSRequest(BaseModel):
+    text: str
+
+
+async def _request_elevenlabs_tts(client: httpx.AsyncClient, voice_id: str, text: str) -> httpx.Response:
+    return await client.post(
+        f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+        headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
+        json={
+            "text": text,
+            "model_id": ELEVENLABS_MODEL_ID,
+            "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+        },
+        timeout=10.0,
+    )
+
+
+@app.post("/tts")
+async def text_to_speech(req: TTSRequest):
+    if not ELEVENLABS_API_KEY or not ELEVENLABS_VOICE_ID:
+        raise HTTPException(status_code=503, detail="ElevenLabs not configured")
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await _request_elevenlabs_tts(client, ELEVENLABS_VOICE_ID, req.text)
+    except httpx.RequestError as exc:
+        print(f"[TTS] ElevenLabs request failed: {exc}")
+        raise HTTPException(status_code=503, detail="Voice alert service unavailable") from exc
+
+    if resp.status_code == 402:
+        print("[TTS] ElevenLabs returned 402 Payment Required; voice alert skipped")
+        raise HTTPException(
+            status_code=402,
+            detail="ElevenLabs quota or billing limit reached; voice alert skipped",
+        )
+    if resp.is_error:
+        print(f"[TTS] ElevenLabs returned HTTP {resp.status_code}: {resp.text[:200]}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Voice alert provider returned HTTP {resp.status_code}",
+        )
+
+    return StreamingResponse(iter([resp.content]), media_type="audio/mpeg")
 
 
 @app.websocket("/ws")
