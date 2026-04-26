@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 const API_BASE = 'http://localhost:8000'
 
-export default function DemoControls({ onClose }) {
+export default function DemoControls({ onClose, selectedPatient = 'patient-001', patientName = 'patient-001' }) {
   const [loading, setLoading] = useState(false)
   const [duration, setDuration] = useState(30)
   const [countdown, setCountdown] = useState(null)
@@ -13,7 +13,7 @@ export default function DemoControls({ onClose }) {
       await fetch(`${API_BASE}/trigger-anomaly`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patient_id: 'patient-001', duration_seconds: duration }),
+        body: JSON.stringify({ patient_id: selectedPatient, duration_seconds: duration }),
       })
       setCountdown(duration)
       const timer = setInterval(() => {
@@ -66,7 +66,7 @@ export default function DemoControls({ onClose }) {
           disabled={loading || countdown !== null}
           className="w-full bg-red-600 hover:bg-red-500 active:scale-95 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-all text-sm"
         >
-          {loading ? 'Injecting…' : countdown !== null ? '🚨 Anomaly Running…' : '🚨 Trigger AFib Anomaly'}
+          {loading ? 'Injecting…' : countdown !== null ? '🚨 Anomaly Running…' : `🚨 Trigger Anomaly — ${patientName}`}
         </button>
 
         <p className="text-xs text-gray-600 mt-3 text-center">

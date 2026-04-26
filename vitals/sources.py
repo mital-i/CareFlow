@@ -7,9 +7,10 @@ import os
 import random
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from models.vitals import VitalsPayload
 
@@ -58,6 +59,17 @@ class PatientVitalsState:
     hrv: float = 55.0
     anomaly_until: float = 0.0
     recovery_started_at: float = 0.0
+    baseline_hr: float = 74.0
+    baseline_spo2: float = 98.5
+    baseline_hrv: float = 55.0
+
+
+def _patient_baselines(patient_id: str) -> tuple[float, float, float]:
+    from db.db import DEMO_PATIENTS
+    for p in DEMO_PATIENTS:
+        if p["patient_id"] == patient_id:
+            return p["baseline_hr"], p["baseline_spo2"], p["baseline_hrv"]
+    return 74.0, 98.5, 55.0
 
 
 class SyntheticVitalsSource(VitalsSource):
@@ -73,7 +85,15 @@ class SyntheticVitalsSource(VitalsSource):
 
     def _state_for(self, patient_id: str) -> PatientVitalsState:
         if patient_id not in self._states:
-            self._states[patient_id] = PatientVitalsState()
+            bhr, bspo2, bhrv = _patient_baselines(patient_id)
+            self._states[patient_id] = PatientVitalsState(
+                heart_rate=bhr,
+                spo2=bspo2,
+                hrv=bhrv,
+                baseline_hr=bhr,
+                baseline_spo2=bspo2,
+                baseline_hrv=bhrv,
+            )
         return self._states[patient_id]
 
     @staticmethod
@@ -134,9 +154,9 @@ class SyntheticVitalsSource(VitalsSource):
             state.recovery_started_at = 0.0
 
         return (
-            74 + self._organic_wave(now, 31, 4) + random.uniform(-3, 3),
-            98.5 + self._organic_wave(now, 43, 0.5) + random.uniform(-0.4, 0.4),
-            58 + self._organic_wave(now, 37, 6) + random.uniform(-5, 5),
+            state.baseline_hr + self._organic_wave(now, 31, 4) + random.uniform(-3, 3),
+            state.baseline_spo2 + self._organic_wave(now, 43, 0.5) + random.uniform(-0.4, 0.4),
+            state.baseline_hrv + self._organic_wave(now, 37, 6) + random.uniform(-5, 5),
             0.35,
         )
 

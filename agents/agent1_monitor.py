@@ -31,9 +31,10 @@ from uagents_core.contrib.protocols.chat import (
     chat_protocol_spec,
 )
 
-DEMO_PATIENT_ID = os.getenv("DEMO_PATIENT_ID", "patient-001")
 AGENT_MONITOR_SEED_PHRASE = os.getenv("AGENT_MONITOR_SEED_PHRASE", "your-agent-seed-phrase-here")
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
+
+ALL_PATIENT_IDS = ["patient-001", "patient-002", "patient-003"]
 
 monitor_agent = Agent(
     name="CareFlow-VitalMonitor",
@@ -54,35 +55,32 @@ async def on_startup(ctx: Context):
 
 @monitor_agent.on_interval(period=1.0)
 async def tick(ctx: Context):
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{API_BASE}/vitals/current/{DEMO_PATIENT_ID}", timeout=3.0)
-            resp.raise_for_status()
-        payload = VitalsPayload(**resp.json())
-    except Exception as exc:
-        ctx.logger.warning(f"[Monitor] Failed to fetch vitals: {exc}")
-        return
+    async with httpx.AsyncClient() as client:
+        for patient_id in ALL_PATIENT_IDS:
+            try:
+                resp = await client.get(f"{API_BASE}/vitals/current/{patient_id}", timeout=3.0)
+                resp.raise_for_status()
+                payload = VitalsPayload(**resp.json())
+            except Exception as exc:
+                ctx.logger.warning(f"[Monitor] Failed to fetch vitals for {patient_id}: {exc}")
+                continue
 
-    ctx.logger.debug(
-        f"[Monitor] HR={payload.heart_rate} SpO2={payload.spo2} HRV={payload.hrv}"
-    )
-
-    anomaly = process_vitals(payload)
-    if anomaly:
-        ctx.logger.warning(
-            f"[Monitor] ANOMALY detected! score={anomaly.deviation_score:.3f} — forwarding to Coordinator"
-        )
-        msg = AnomalyMessage(
-            anomaly_id=str(anomaly.anomaly_id),
-            patient_id=anomaly.patient_id,
-            signal_type=anomaly.signal_type,
-            deviation_score=anomaly.deviation_score,
-            heart_rate=payload.heart_rate,
-            spo2=payload.spo2,
-            hrv=payload.hrv,
-            detected_at=anomaly.detected_at.isoformat(),
-        )
-        await ctx.send(COORDINATOR_AGENT_ADDRESS, msg)
+            anomaly = process_vitals(payload)
+            if anomaly:
+                ctx.logger.warning(
+                    f"[Monitor] ANOMALY {patient_id} score={anomaly.deviation_score:.3f} — forwarding to Coordinator"
+                )
+                msg = AnomalyMessage(
+                    anomaly_id=str(anomaly.anomaly_id),
+                    patient_id=anomaly.patient_id,
+                    signal_type=anomaly.signal_type,
+                    deviation_score=anomaly.deviation_score,
+                    heart_rate=payload.heart_rate,
+                    spo2=payload.spo2,
+                    hrv=payload.hrv,
+                    detected_at=anomaly.detected_at.isoformat(),
+                )
+                await ctx.send(COORDINATOR_AGENT_ADDRESS, msg)
         
 
 
