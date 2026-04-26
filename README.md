@@ -10,7 +10,9 @@ CareFlow is a real-time patient monitoring pipeline: wearable vitals → heurist
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` → `.env` and fill in `MONGODB_URI`, `AGENT_MONITOR_SEED_PHRASE`, `AGENT_COORDINATOR_SEED_PHRASE`, and `AGENTVERSE_KEY`.
+Copy `.env.example` → `.env` and fill in `MONGODB_URI`, `AGENT_MONITOR_SEED_PHRASE`, `AGENT_COORDINATOR_SEED_PHRASE`, `AGENTVERSE_KEY`, and Twilio credentials (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_TO_NUMBERS`).
+
+To receive WhatsApp alerts, open WhatsApp and send the sandbox join keyword (shown at console.twilio.com → Messaging → Try it out → Send a WhatsApp message) to **+1 415 523 8886**. This is a one-time step per device.
 
 Seed the demo patient (run once):
 
@@ -29,7 +31,7 @@ npm install
 
 ## Running the Full System
 
-Open **5 terminals**. Terminals 1–3 require your Python venv active.
+Open **6 terminals**. Terminals 1–5 require your Python venv active.
 
 **Terminal 1 — Ollama (MedGemma)**
 ```bash
@@ -54,7 +56,13 @@ python agents/agent2_coordinator.py
 ```
 Note the printed agent address and set `AGENT_COORDINATOR_ADDRESS` in `.env`.
 
-**Terminal 5 — React dashboard**
+**Terminal 5 — Agent 3: Notifier** *(venv)*
+```bash
+python agents/agent3_notifier.py
+```
+Sends a WhatsApp alert via Twilio when a CRITICAL event is dispatched. Requires Twilio credentials in `.env` and the sandbox join step above.
+
+**Terminal 6 — React dashboard**
 ```bash
 cd careflow-ui && npm run dev
 ```
