@@ -15,5 +15,8 @@ uagents==0.24.2
 
 # Gemma via Ollama (httpx already listed above — no extra deps needed)
 
+# Twilio SMS alerts
+twilio>=9.0.0
+
 # Utilities
 numpy==1.26.4
