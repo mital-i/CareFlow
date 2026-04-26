@@ -45,3 +45,12 @@ class ActionMessage(Model):
     provider_message: Optional[str]
     assessment_ref: str
     executed_at: str
+
+
+class NotifyMessage(Model):
+    patient_id: str
+    severity_level: str
+    risk_score: float
+    doctor_note: str
+    action_tier: str
+    assessment_id: str
